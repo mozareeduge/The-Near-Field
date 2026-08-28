@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Nearby Narrative Candidate Field",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "current_date",
+    "anchor",
+    "regional_context",
+    "logical_radius_m",
+    "candidate_pages",
+    "enrichment"
+  ],
+  "properties": {
+    "current_date": {
+      "type": "string"
+    },
+    "anchor": {
+      "type": "object",
+      "required": [
+        "lat",
+        "lon"
+      ],
+      "properties": {
+        "label": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "lat": {
+          "type": "number"
+        },
+        "lon": {
+          "type": "number"
+        }
+      }
+    },
+    "regional_context": {
+      "type": "object"
+    },
+    "logical_radius_m": {
+      "enum": [
+        1000,
+        3000,
+        10000
+      ]
+    },
+    "candidate_pages": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "candidate_id",
+          "pageid",
+          "title",
+          "url",
+          "latitude",
+          "longitude",
+          "distance_from_anchor_m",
+          "extract"
+        ],
+        "properties": {
+          "candidate_id": {
+            "type": "string"
+          },
+          "pageid": {
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "latitude": {
+            "type": "number"
+          },
+          "longitude": {
+            "type": "number"
+          },
+          "distance_from_anchor_m": {
+            "type": "number",
+            "minimum": 0
+          },
+          "extract": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "enrichment": {
+      "type": "array",
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_id",
+          "title",
+          "url",
+          "snippet",
+          "explicit_local_term"
+        ],
+        "properties": {
+          "source_id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "snippet": {
+            "type": "string"
+          },
+          "explicit_local_term": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

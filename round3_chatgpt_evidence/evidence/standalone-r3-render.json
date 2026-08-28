@@ -1,0 +1,92 @@
+{
+  "desktop": {
+    "viewport": {
+      "w": 1440,
+      "h": 1000
+    },
+    "mapHeight": 680,
+    "readingTop": 756,
+    "mapBottom": 680,
+    "gap": 76,
+    "docHeight": 1178,
+    "horizontalOverflow": false,
+    "movement": "RELATIONAL_UNVERIFIED",
+    "fixture": "harpers-ferry",
+    "activeCrossBindingCount": 3,
+    "ledgerOpacity": "0.64",
+    "sr": "Anchor Harpers Ferry, West Virginia. Selected places: Harpers Ferry station, Jefferson Rock, Lockwood House (Harpers Ferry). No pedestrian route is claimed. Mar",
+    "measureAnimation": "measure"
+  },
+  "mobile": {
+    "viewport": {
+      "w": 390,
+      "h": 844
+    },
+    "mapHeight": 523.265625,
+    "readingTop": 571.265625,
+    "mapBottom": 523.265625,
+    "gap": 48,
+    "docHeight": 1083,
+    "horizontalOverflow": false,
+    "movement": "RELATIONAL_UNVERIFIED",
+    "fixture": "harpers-ferry",
+    "activeCrossBindingCount": 3,
+    "ledgerOpacity": "0.64",
+    "sr": "Anchor Harpers Ferry, West Virginia. Selected places: Harpers Ferry station, Jefferson Rock, Lockwood House (Harpers Ferry). No pedestrian route is claimed. Mar",
+    "measureAnimation": "measure"
+  },
+  "reduced": {
+    "viewport": {
+      "w": 1440,
+      "h": 1000
+    },
+    "mapHeight": 680,
+    "readingTop": 756,
+    "mapBottom": 680,
+    "gap": 76,
+    "docHeight": 1178,
+    "horizontalOverflow": false,
+    "movement": "RELATIONAL_UNVERIFIED",
+    "fixture": "harpers-ferry",
+    "activeCrossBindingCount": 3,
+    "ledgerOpacity": "0.64",
+    "sr": "Anchor Harpers Ferry, West Virginia. Selected places: Harpers Ferry station, Jefferson Rock, Lockwood House (Harpers Ferry). No pedestrian route is claimed. Mar",
+    "measureAnimation": "none"
+  },
+  "narrow320": {
+    "viewport": {
+      "w": 320,
+      "h": 568
+    },
+    "mapHeight": 352.15625,
+    "readingTop": 400.15625,
+    "mapBottom": 352.15625,
+    "gap": 48,
+    "docHeight": 901,
+    "horizontalOverflow": false,
+    "movement": "RELATIONAL_UNVERIFIED",
+    "fixture": "harpers-ferry",
+    "activeCrossBindingCount": 3,
+    "ledgerOpacity": "0.64",
+    "sr": "Anchor Harpers Ferry, West Virginia. Selected places: Harpers Ferry station, Jefferson Rock, Lockwood House (Harpers Ferry). No pedestrian route is claimed. Mar",
+    "measureAnimation": "measure"
+  },
+  "taft_mobile": {
+    "viewport": {
+      "w": 390,
+      "h": 844
+    },
+    "mapHeight": 523.265625,
+    "readingTop": 571.265625,
+    "mapBottom": 523.265625,
+    "gap": 48,
+    "docHeight": 1384,
+    "horizontalOverflow": false,
+    "movement": "NONE",
+    "fixture": "taft",
+    "activeCrossBindingCount": 3,
+    "ledgerOpacity": "0.64",
+    "sr": "Anchor Taft, Iran. Selected places: Taft, Iran. No pedestrian route is claimed. Farideh\u2019s mother had been asking her to stop at her aunt\u2019s in Taft for three Thu",
+    "measureAnimation": "measure"
+  }
+}

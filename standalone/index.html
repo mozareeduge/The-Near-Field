@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#0B0C0C" />
+  <title>Nearby Field — Round 1 no-build harness</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+<main id="app" class="app phase-orientation">
+  <div id="map" class="simple-map" aria-label="Interactive map">
+    <div id="tiles" class="tile-pane"></div>
+    <div id="overlay" class="overlay-pane"><svg id="svg" aria-hidden="true"></svg></div>
+    <div class="map-crosshair"></div>
+    <div class="simple-zoom"><button id="zoom-in" aria-label="Zoom in">+</button><button id="zoom-out" aria-label="Zoom out">−</button></div>
+    <div class="map-attrib">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a></div>
+  </div>
+  <header class="brand"><span class="brand-mark">NF</span><span class="brand-name">Nearby Field</span><span class="round-tag">R1</span></header>
+  <section id="orientation" class="orientation-controls" aria-label="Find a place">
+    <div class="search-wrap"><label class="sr-only" for="place-search">Search for a place</label><input id="place-search" class="search-input" type="search" autocomplete="off" placeholder="Find a place" /><span id="search-state" class="search-state"></span></div>
+    <div id="results" class="search-results" hidden></div>
+    <div class="entry-actions"><button id="use-location" class="quiet-action">Use my location</button><button id="choose-map" class="quiet-action">Choose on map</button></div>
+    <div id="map-pick" class="map-pick-dock" hidden><span>Move the map until the crosshair is where you want.</span><button id="use-center">Use map center</button></div>
+    <div id="location-error" class="location-error" hidden></div>
+  </section>
+  <section id="preview" class="anchor-preview" aria-label="Confirm place" hidden></section>
+  <aside id="register" class="field-register" aria-live="polite" hidden></aside>
+  <section id="ledger" class="candidate-ledger" aria-label="Nearby Wikipedia candidates" hidden></section>
+  <section id="inspector" class="candidate-inspector" aria-live="polite" hidden></section>
+  <details id="enrichment" class="enrichment-register" hidden></details>
+  <button id="new-place" class="new-place" hidden>new place</button>
+  <footer class="source-note">map © OpenStreetMap · field: English Wikipedia</footer>
+</main>
+<script type="module" src="./app.js"></script>
+</body>
+</html>

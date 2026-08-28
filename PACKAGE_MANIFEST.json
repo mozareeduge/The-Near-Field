@@ -1,0 +1,509 @@
+{
+  "package": "Nearby Field Round 2",
+  "candidate_id": "NF-R2-0.2.0",
+  "parent_candidate": "NF-R1-0.1.0",
+  "generated_date": "2026-08-26",
+  "file_count": 100,
+  "files": [
+    {
+      "path": "env.example",
+      "bytes": 479,
+      "sha256": "097ca4d40e913592af3091b7fff4e7e9de219320f7e035c9d8d925afd3851169"
+    },
+    {
+      "path": "gitignore",
+      "bytes": 52,
+      "sha256": "7613f443aad50e027570b903f9cdac731cae6052c04536088190fb0f5be2719f"
+    },
+    {
+      "path": "NEXT_ROUND_INPUT/README.md",
+      "bytes": 2129,
+      "sha256": "e173054ec2dbb19ec79a0e8c65ede09a2459cbefe79c00043ef5b76801f411a1"
+    },
+    {
+      "path": "NEXT_ROUND_INPUT/ROUND3_BUILD_BRIEF.md",
+      "bytes": 4345,
+      "sha256": "d22b6b569e48a4f47b68e15d36f6429c2f717dfddd5243fe5519efdf91f78f0f"
+    },
+    {
+      "path": "NEXT_ROUND_INPUT/ROUND3_FROZEN_REGRESSIONS.md",
+      "bytes": 2324,
+      "sha256": "0b1d61f7ca2d246c454b5ca78e927f984ef0fa1cd1a0d0ea2cd666099969315a"
+    },
+    {
+      "path": "NEXT_ROUND_INPUT/ROUND3_MODEL_EVAL_PROTOCOL.md",
+      "bytes": 2915,
+      "sha256": "d7e1ede2dce55beea52423382b3a4a4d9bd664907262bb8e66e7e7381b284779"
+    },
+    {
+      "path": "NEXT_ROUND_INPUT/authority/00_START_HERE.md",
+      "bytes": 7733,
+      "sha256": "87e81aca7dd6b8b1bc05a205a95754c0c1982d38c8abcf91084b399f39a2d0a2"
+    },
+    {
+      "path": "NEXT_ROUND_INPUT/authority/01_SYSTEM_AND_BOUNDARIES.md",
+      "bytes": 4493,
+      "sha256": "db830be1ec07d11bf2e79e3de11bd65954f022da25560e2b7a8be4dbfb9ec64c"
+    },
+    {
+      "path": "NEXT_ROUND_INPUT/authority/03_DECISION_LEDGER.md",
+      "bytes": 15078,
+      "sha256": "3e5154ec6fd02e1b726ca2384885faa3908620362215b828b532dc8040fb7809"
+    },
+    {
+      "path": "NEXT_ROUND_INPUT/authority/04_OPEN_DECISIONS_AND_PROOF_GAPS.md",
+      "bytes": 5888,
+      "sha256": "cec6bf8a99183163f07b30243fd43890f3f7fbd13756e924b19c0183eaed7140"
+    },
+    {
+      "path": "NEXT_ROUND_INPUT/authority/10_PRODUCT_AND_INTERACTION.md",
+      "bytes": 10452,
+      "sha256": "65d8c6c929974ce05dd3d762f5c06351bcd8cd7cc5c0784df590c9ea0ae83617"
+    },
+    {
+      "path": "NEXT_ROUND_INPUT/authority/12_VISUAL_CARTOGRAPHIC_SYSTEM.md",
+      "bytes": 10550,
+      "sha256": "90e8fe2c59582a5d1601002cba5bfe76aa1818138df1ce809a8d2bb83b79655e"
+    },
+    {
+      "path": "NEXT_ROUND_INPUT/authority/13_PROCESSING_AND_LOADER.md",
+      "bytes": 6378,
+      "sha256": "7c3c53fea58a540d24451fd21c9d979c74290a046d32dad5b05ff2d4d800daaa"
+    },
+    {
+      "path": "NEXT_ROUND_INPUT/authority/14_TECHNICAL_ARCHITECTURE.md",
+      "bytes": 11895,
+      "sha256": "48eefab1b64bd180bbe2bac57c878b33cb26cd900b806d959f25d973f5861932"
+    },
+    {
+      "path": "NEXT_ROUND_INPUT/authority/15_SKILL_INTEGRATION_RUNTIME.md",
+      "bytes": 6613,
+      "sha256": "8124150437c3dd2e5829205f7dbf7b543df555579994f493132b5cf6348ad24e"
+    },
+    {
+      "path": "NEXT_ROUND_INPUT/authority/16_DATA_CONTRACTS.md",
+      "bytes": 5905,
+      "sha256": "49e905bfad7cf8d1a542ffafdd8b2819cc5ef0bf813cf85835d7f96ce78faff4"
+    },
+    {
+      "path": "NEXT_ROUND_INPUT/authority/17_QA_TEST_MATRIX.md",
+      "bytes": 10269,
+      "sha256": "4568a4185605e9606deb0b7d210d8e7b1b352015a0e03f68e0448cbd9836d2f8"
+    },
+    {
+      "path": "NEXT_ROUND_INPUT/authority/18_BUILD_SEQUENCE.md",
+      "bytes": 3939,
+      "sha256": "7ed554d232a74b625d9a776dfe149f912e28996bd9756882f735fd69a58995ae"
+    },
+    {
+      "path": "NEXT_ROUND_INPUT/authority/20_CURRENT_SKILL_AUTHORITY.md",
+      "bytes": 4523,
+      "sha256": "8b8caaf217da5d656c8dfd2bd4401fbb4c3ef467e56807a76f13a98916680bac"
+    },
+    {
+      "path": "NEXT_ROUND_INPUT/authority/24_MODEL_COST_AND_EVAL_STRATEGY.md",
+      "bytes": 3509,
+      "sha256": "bdb512d7ba0d1804bf05826f36263511605c160c8c9c6a6d2df9225bed32c72f"
+    },
+    {
+      "path": "NEXT_ROUND_INPUT/evidence/30_TAFT_FINDINGS.md",
+      "bytes": 2580,
+      "sha256": "b00cca5c5245bd3e42a36615c9cd313af79e8bb1f7fb07b2309198bb03995b2e"
+    },
+    {
+      "path": "NEXT_ROUND_INPUT/evidence/31_HARPERS_FERRY_EXECUTION_ANALYSIS.md",
+      "bytes": 6228,
+      "sha256": "de13db685213c1cf35fbecbb3ae760a48def87c09fcae0673adcda78f0abb700"
+    },
+    {
+      "path": "README.md",
+      "bytes": 3361,
+      "sha256": "0ca8c69920c29ea1a191a9dc98c0c7f81cd97818c519b95a862e63a46834d604"
+    },
+    {
+      "path": "ROUND1_DEFECT_REGISTER.md",
+      "bytes": 2178,
+      "sha256": "a8dd58111fb90952f8eaaa44051f2e7bfe2b6571e9f301806ea5764872eb244a"
+    },
+    {
+      "path": "ROUND1_QA_RUN.txt",
+      "bytes": 2620,
+      "sha256": "12ccda22d4ce5a84d51684c884dd1f430da265bf296a7a0d677cc224731ec7c9"
+    },
+    {
+      "path": "ROUND1_RUNTIME_EVIDENCE.md",
+      "bytes": 3859,
+      "sha256": "f798580d46b98f7f109c6db9fda61c8c0aeb003abfacc74123a27134bf42dd08"
+    },
+    {
+      "path": "ROUND1_STATE.md",
+      "bytes": 4223,
+      "sha256": "c81465eaa4e7103a5f6423ca17912b2d13592396733bda3fc5d07ebab3f14ba0"
+    },
+    {
+      "path": "ROUND2_DEFECT_REGISTER.md",
+      "bytes": 2746,
+      "sha256": "7d8ab484cf25932dcb23018a0119bcacc4715e7187d3b1129e79d5d70ab5e972"
+    },
+    {
+      "path": "ROUND2_FINDINGS_FROM_MAKING.md",
+      "bytes": 2028,
+      "sha256": "98bb4fff076baa1281fb8614e33b080d1a692a9857d76f4abac956f196f20cb4"
+    },
+    {
+      "path": "ROUND2_QA_RUN.txt",
+      "bytes": 5804,
+      "sha256": "8da9d7fc54b7ae3d17fa475b3d25ef5323e9552a3a8869631de22a845e1fbc89"
+    },
+    {
+      "path": "ROUND2_RUNTIME_EVIDENCE.md",
+      "bytes": 4718,
+      "sha256": "79f3ae271675f1651d2488dabbf112f3d97ef36c046f2096c5e49cd62b4b135a"
+    },
+    {
+      "path": "ROUND2_SECOND_PASS_AUDIT.md",
+      "bytes": 2468,
+      "sha256": "6fc20bf547e786f347ef32573bcf9f9b84b86ddc2e8f454714e892458aa8eae7"
+    },
+    {
+      "path": "ROUND2_STATE.md",
+      "bytes": 6498,
+      "sha256": "f4148a65943789b8e8a94d369584aa0b242863085e36e58f6e8f945f71054f86"
+    },
+    {
+      "path": "SECOND_PASS_AUDIT.md",
+      "bytes": 1910,
+      "sha256": "f9b8d074c3e4862e5b77c7ec135731bb872ebe97a36133e5d48560b8cd7217c4"
+    },
+    {
+      "path": "WEB_VERIFICATION_2026-08-26.md",
+      "bytes": 1740,
+      "sha256": "91a20db477d6ce310028c6bf87236631e8f6887498653c7a8d5bd8b6182ac0b8"
+    },
+    {
+      "path": "apps/web/index.html",
+      "bytes": 361,
+      "sha256": "aa15f2e0c109386920f68a5a2b6301dd9ca806796de780b573bccd6493f8c0b3"
+    },
+    {
+      "path": "apps/web/package.json",
+      "bytes": 585,
+      "sha256": "c650d366554fd71d21e078f0836194c3c6e6befe96533f06680889e5ba1abb1a"
+    },
+    {
+      "path": "apps/web/src/App.tsx",
+      "bytes": 21662,
+      "sha256": "0e40bacd0f3f7c1d6289ab9d4c6a2cbdaeeb1fc43c43bdad8025fcbea5b7c7a2"
+    },
+    {
+      "path": "apps/web/src/components/MapView.tsx",
+      "bytes": 10281,
+      "sha256": "220c1f1891b7521ada25f8b042ca176b6610358622b3be5b755dc8a482b54ee5"
+    },
+    {
+      "path": "apps/web/src/lib/api.ts",
+      "bytes": 2890,
+      "sha256": "4585d676da876124c318a51667bee3e1bff9f23031b35b6613387dd18da9f141"
+    },
+    {
+      "path": "apps/web/src/lib/geo.ts",
+      "bytes": 2130,
+      "sha256": "9c0a180e855944c6e223c09fa930f860b591b22de5444c83551a822a659c046c"
+    },
+    {
+      "path": "apps/web/src/lib/types.ts",
+      "bytes": 3324,
+      "sha256": "86cca13d0b8652428060539aea7a3ac6d6fbc466fef850e7b3d5d07921348b25"
+    },
+    {
+      "path": "apps/web/src/main.tsx",
+      "bytes": 223,
+      "sha256": "9aab3165bf14105d8a05d9efec9e63734ce88d48b5ccac504172422f0b57dcdd"
+    },
+    {
+      "path": "apps/web/src/styles.css",
+      "bytes": 15318,
+      "sha256": "de2b0133a7eec800e5f67a258e7d28f3b52754d31ba644fc163c1ffc788a535d"
+    },
+    {
+      "path": "apps/web/src/vite-env.d.ts",
+      "bytes": 38,
+      "sha256": "65996936fbb042915f7b74a200fcdde7e410f32a669b1ab9597cfaa4b0faddb5"
+    },
+    {
+      "path": "apps/web/tsconfig.json",
+      "bytes": 527,
+      "sha256": "83efc1798334967d5a907f26b8cba31fa213f16b5ac0ed5c02fd38e7cf0ceb66"
+    },
+    {
+      "path": "apps/web/vite.config.ts",
+      "bytes": 149,
+      "sha256": "71bcce32f27972179d1d39eacf3580fadf1b7afa8ec69c87524949959cecad2a"
+    },
+    {
+      "path": "apps/worker/package.json",
+      "bytes": 355,
+      "sha256": "38eec8e5cd47ed0788d7f5697cfcefbbb1c839fb6f37d829f69ff5b9831ce757"
+    },
+    {
+      "path": "apps/worker/src/index.ts",
+      "bytes": 15316,
+      "sha256": "c8b17d11066c4dfdeb07f4087d96112bea89583035a5e0ec6631a4bf1ff1a204"
+    },
+    {
+      "path": "apps/worker/src/round2.ts",
+      "bytes": 27992,
+      "sha256": "7adf4d2489c5e7e4731d4b6236f1b7ceb68e67f77471cb6315d85160646cd2ac"
+    },
+    {
+      "path": "apps/worker/tsconfig.json",
+      "bytes": 281,
+      "sha256": "9cce6cd9ef3759f1fe335854ff38a1310aa091c211462c37a81f27a1c71fd0bb"
+    },
+    {
+      "path": "apps/worker/wrangler.jsonc",
+      "bytes": 223,
+      "sha256": "29bfbc7d51ec7c39860c2a39c5335a4c33b72cdcdf56f35eb3df25f1d147e249"
+    },
+    {
+      "path": "fixtures/harpers-ferry/README.md",
+      "bytes": 1302,
+      "sha256": "30a5d943e7050d8da4e68496ea5e4a99151a9f8d11c352870a0d8aa94d255b35"
+    },
+    {
+      "path": "fixtures/harpers-ferry/candidate_field.json",
+      "bytes": 2374,
+      "sha256": "cb4b078a0c7becd617c3a05d430b0b1d9152b02b0738198340a60f1a59bff6d7"
+    },
+    {
+      "path": "fixtures/harpers-ferry/gatherer.json",
+      "bytes": 3562,
+      "sha256": "fa8bd7cd53503e094bc8a343d412f2c42e4dd37c64e8e62d1932b3698212cc21"
+    },
+    {
+      "path": "fixtures/harpers-ferry/movement.json",
+      "bytes": 319,
+      "sha256": "de2baa2c3ff8273d0a825e714f07145c125ce951f0b462f042d1fd8e90415e4c"
+    },
+    {
+      "path": "fixtures/harpers-ferry/movement.legacy-v3.1.json",
+      "bytes": 302,
+      "sha256": "075eeea04e0f678c6c3f7df81316b3029de2ad28fcb3d213a472f5d31e192586"
+    },
+    {
+      "path": "fixtures/harpers-ferry/synth_input.json",
+      "bytes": 4309,
+      "sha256": "759b0121c0599d02f59fbf56e638b789888cf1192c183a2eb0af12e7c2d9ddf2"
+    },
+    {
+      "path": "fixtures/harpers-ferry/synth_input.legacy-v3.1.json",
+      "bytes": 4220,
+      "sha256": "4f5a4c04cef1d41e2af186c22e96f9ade713b62ca2022dea3568b47c7778168f"
+    },
+    {
+      "path": "fixtures/harpers-ferry/synth_output.json",
+      "bytes": 1328,
+      "sha256": "5f33e37e095f8b7a115dbc90bd10d057c26bf74c0bbd331c0414502781a3aa3b"
+    },
+    {
+      "path": "fixtures/harpers-ferry/synth_output.legacy-v3.1.json",
+      "bytes": 855,
+      "sha256": "12225a380e69614fed52d27bd465e6c23fedf691a6ccd276a6facc882dc2c487"
+    },
+    {
+      "path": "fixtures/taft-candidate.json",
+      "bytes": 1123,
+      "sha256": "a86016171818c6ba44abc207db89b377e8f17496f106bcf18606a120be77a326"
+    },
+    {
+      "path": "package.json",
+      "bytes": 602,
+      "sha256": "bec3ece44f463d20cc8030e58e5a9483a82b2d1aaac8eea192d6746e4d5db6ae"
+    },
+    {
+      "path": "packages/contracts/types.ts",
+      "bytes": 3723,
+      "sha256": "434cb9f16f982c95ed5e91855e920966078cf212a5eb513652582b27709ca36d"
+    },
+    {
+      "path": "packages/nearby-narrative/SKILL.md",
+      "bytes": 2111,
+      "sha256": "49bdd4b948329fca76292487d78b392494fc82e4bcc926c2468c1927cefa8d05"
+    },
+    {
+      "path": "packages/nearby-narrative/references/GATHERER.md",
+      "bytes": 1667,
+      "sha256": "39f387c15e18de202b533e0407c21b3fcd419531ad6f2c711ff5f0daf253b27a"
+    },
+    {
+      "path": "packages/nearby-narrative/references/RETRIEVAL.md",
+      "bytes": 1399,
+      "sha256": "aacdb2d332e1dc1257401b1e89cbc9a2699ad6cf4f45498e775ed4a6f6c3f002"
+    },
+    {
+      "path": "packages/nearby-narrative/references/RUNTIME.md",
+      "bytes": 1218,
+      "sha256": "a5aa2b8be1139cc3c651403daebeec2c99f162b18350511a1a64bb192c3ffc18"
+    },
+    {
+      "path": "packages/nearby-narrative/references/SYNTHESIZER.md",
+      "bytes": 2085,
+      "sha256": "b5fabef9f9c8c89cb5088095b93e6c9c5230ccf8f4a65ff54c62e1941ae0b29d"
+    },
+    {
+      "path": "packages/nearby-narrative/schemas/candidate-field.schema.json",
+      "bytes": 2534,
+      "sha256": "0f9739d4cbc7acb3b36b226517e3fb25cf226083f82c88990644145f9373d6f0"
+    },
+    {
+      "path": "packages/nearby-narrative/schemas/gatherer-output.schema.json",
+      "bytes": 3335,
+      "sha256": "67dc528b4926f3c5c9ebf0d9dc66ffa2cb26040df8e5190b4bd5c43b3f0deb4c"
+    },
+    {
+      "path": "packages/nearby-narrative/schemas/movement.schema.json",
+      "bytes": 1099,
+      "sha256": "35601d4498003a5ba5e0871f4cda24295fb9bb2a689766f9561819a5b34f206e"
+    },
+    {
+      "path": "packages/nearby-narrative/schemas/synthesizer-output.schema.json",
+      "bytes": 1295,
+      "sha256": "7947be4cb67235c1dbc23c2d6425d3503716523b1c369e47de77deb0250ff90b"
+    },
+    {
+      "path": "packages/nearby-narrative/scripts/build_synth_input.py",
+      "bytes": 882,
+      "sha256": "3a1012a65f3efa11704fd447636b2d4d1eb512ed0025a9ad92afe361a68162b3"
+    },
+    {
+      "path": "packages/nearby-narrative/scripts/order_points.py",
+      "bytes": 1620,
+      "sha256": "1a2f5f8ac33668c36f9716b6ad68b805cd7e00024e3d177db84dcc9cc9b4d45b"
+    },
+    {
+      "path": "packages/nearby-narrative/scripts/prepare_field.py",
+      "bytes": 6772,
+      "sha256": "1e8f91593100680e311b3837bae135b5af43a4155f388c8b09d1e6d7b91806a7"
+    },
+    {
+      "path": "packages/nearby-narrative/scripts/static_check.py",
+      "bytes": 2445,
+      "sha256": "f6e9e2e0c64c34ce53b33f83897ab539dd0ba3dd7ca8d49bb83dca3049c4729b"
+    },
+    {
+      "path": "packages/nearby-narrative/scripts/validate.py",
+      "bytes": 4530,
+      "sha256": "67cfc81af89367c6f828d0538aef1d96c4467666bec7c54d3b3616caec4d0d87"
+    },
+    {
+      "path": "packages/nearby-narrative/tests/fixtures/neyshabur-symbolic-candidate.json",
+      "bytes": 1435,
+      "sha256": "c03c03027c241e9c3a760f7ffef1d6f340ead0484c1efc5f58f44314fcd9ac24"
+    },
+    {
+      "path": "packages/nearby-narrative/tests/fixtures/taft-candidate.json",
+      "bytes": 1123,
+      "sha256": "a86016171818c6ba44abc207db89b377e8f17496f106bcf18606a120be77a326"
+    },
+    {
+      "path": "packages/nearby-narrative/tests/fixtures/taft-gatherer.json",
+      "bytes": 1157,
+      "sha256": "3973c374b90294f5504cd288599948e222a72fc4835292017935c39ebea6b434"
+    },
+    {
+      "path": "packages/nearby-narrative/tests/fixtures/taft-movement.json",
+      "bytes": 116,
+      "sha256": "87df76291eb70b23a2096535fe7eca14b9c488e0b70d15aee91e70fda4e84b05"
+    },
+    {
+      "path": "packages/nearby-narrative/tests/fixtures/taft-raw-api.json",
+      "bytes": 1038,
+      "sha256": "8102a16640fab8ec4172ce647ad7862f118f622a7013bc1619585e4ed94f3e8f"
+    },
+    {
+      "path": "packages/nearby-narrative/tests/fixtures/taft-synth-simulation.json",
+      "bytes": 876,
+      "sha256": "89fc8118eb83760b533fe004383da3156864d1ded4a2b7be440567517c5bdfc0"
+    },
+    {
+      "path": "packages/nearby-narrative/tests/run_tests.py",
+      "bytes": 4596,
+      "sha256": "4a40c5dbc2cdd3eeaf34537fae85b05aae03d1ea9217852050862953036965b5"
+    },
+    {
+      "path": "qa-round1.sh",
+      "bytes": 493,
+      "sha256": "57a42d29db04549caafb41ba5e622345c781cbf4ce916440594733bbd8999c2c"
+    },
+    {
+      "path": "qa-round2.sh",
+      "bytes": 1295,
+      "sha256": "44f6be9d16ae3b8fcdea26767be19cbed17e944d944386db727ab8e5740cd4cc"
+    },
+    {
+      "path": "screenshots/README.md",
+      "bytes": 421,
+      "sha256": "862dc2bfe0820097069c4a45dce7f48a36ccfe89c6fe9d563d687135b0d2fea8"
+    },
+    {
+      "path": "standalone/app.js",
+      "bytes": 18445,
+      "sha256": "5520272b0a46aada878e8371f6b328f712848071aa111c3567de90e3037311c2"
+    },
+    {
+      "path": "standalone/index.html",
+      "bytes": 2532,
+      "sha256": "854f054be150b40a17f839cdbb73a8fbb224a9ec604b85d9b5c557a0f1fe5382"
+    },
+    {
+      "path": "standalone/styles.css",
+      "bytes": 14074,
+      "sha256": "2c5304716ed904d1b6741190455a12af974ddbe1bd12e644076cc4717c51ec76"
+    },
+    {
+      "path": "standalone-r2/app.js",
+      "bytes": 7267,
+      "sha256": "4afa9b4beef0291cdbaafa57c7f2bc9ebb45606026bb2af6abcfc3ae8d7f53b6"
+    },
+    {
+      "path": "standalone-r2/index.html",
+      "bytes": 986,
+      "sha256": "c8764233ea274b6f48b086ebcd007c9567aee9ac3c7da676ea34f4e5e4686fdb"
+    },
+    {
+      "path": "standalone-r2/styles.css",
+      "bytes": 4331,
+      "sha256": "3d82c90e8a61d46ea534266723c9cfaec1219d82d2580ba12303299dbf94f81a"
+    },
+    {
+      "path": "tests/field-logic.test.mjs",
+      "bytes": 1837,
+      "sha256": "cace4d6577d8b987494ca45ec0b3da98f87c0752d0fb37b767d8602863e20b5c"
+    },
+    {
+      "path": "tests/prompt-fidelity.test.mjs",
+      "bytes": 592,
+      "sha256": "4e9b81e18dc664a15fa81541caa4d886d32c289278b585f02a8a67edee75b0ab"
+    },
+    {
+      "path": "tests/round2-pipeline.test.mjs",
+      "bytes": 8334,
+      "sha256": "b88e37d153644db81f289352bcb9cbddeb0430883a170ddc487597fcd461c1d0"
+    },
+    {
+      "path": "tests/round2-ui-static.py",
+      "bytes": 1262,
+      "sha256": "011e61877a216eeedb8ea03b45c0bda3a08fdb6720845ba2bcc7342661719eda"
+    },
+    {
+      "path": "tests/static-ui-check.py",
+      "bytes": 1063,
+      "sha256": "b5e40deb9a38b75ca0e3730cee678ad659c3d6a9a76fff310064bec58269238e"
+    },
+    {
+      "path": "tests/worker-integration.test.mjs",
+      "bytes": 4844,
+      "sha256": "af6e3656cc388a454d22c1aca347c2754faeea46a1e72581600417be06e15769"
+    }
+  ]
+}

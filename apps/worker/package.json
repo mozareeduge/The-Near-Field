@@ -1,0 +1,15 @@
+{
+  "name": "@nearby-field/worker",
+  "private": true,
+  "version": "0.2.0-r2",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --local --port 8787",
+    "check": "wrangler deploy --dry-run --outdir dist"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260828.1",
+    "typescript": "^5.9.2",
+    "wrangler": "^4.33.1"
+  }
+}

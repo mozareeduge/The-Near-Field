@@ -1,0 +1,47 @@
+{
+  "current_date": "2026-08-24",
+  "anchor": {
+    "label": "Neyshabur, Iran",
+    "lat": 36.2,
+    "lon": 58.8
+  },
+  "regional_context": {
+    "settlement_or_city": "Neyshabur",
+    "intermediate_region": "Razavi Khorasan",
+    "country": "Iran"
+  },
+  "logical_radius_m": 3000,
+  "candidate_pages": [
+    {
+      "candidate_id": "C01",
+      "pageid": 1,
+      "title": "Mausoleum of Attar of Nishapur",
+      "url": "https://en.wikipedia.org/wiki/A",
+      "latitude": 36.1,
+      "longitude": 58.8,
+      "distance_from_anchor_m": 300,
+      "extract": "A mausoleum of the poet Attar in Nishapur, in a garden, with an octagonal structure and multiple entrances."
+    },
+    {
+      "candidate_id": "C02",
+      "pageid": 2,
+      "title": "Mausoleum of Kamal-ol-Molk",
+      "url": "https://en.wikipedia.org/wiki/B",
+      "latitude": 36.11,
+      "longitude": 58.81,
+      "distance_from_anchor_m": 500,
+      "extract": "The mausoleum of painter Kamal-ol-Molk is near the tomb of Attar and was designed by Hooshang Seyhoun."
+    },
+    {
+      "candidate_id": "C03",
+      "pageid": 3,
+      "title": "Shadiyakh",
+      "url": "https://en.wikipedia.org/wiki/C",
+      "latitude": 36.12,
+      "longitude": 58.79,
+      "distance_from_anchor_m": 700,
+      "extract": "Shadiyakh was a medieval neighbourhood and archaeological site of Nishapur where excavations uncovered buildings and objects."
+    }
+  ],
+  "enrichment": []
+}

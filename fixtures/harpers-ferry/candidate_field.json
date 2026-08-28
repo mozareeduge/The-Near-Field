@@ -1,0 +1,49 @@
+{
+  "current_date": "2026-08-25",
+  "anchor": {
+    "label": "Harpers Ferry, West Virginia",
+    "lat": 39.3234,
+    "lon": -77.732
+  },
+  "regional_context": {
+    "settlement": "Harpers Ferry",
+    "county": "Jefferson County",
+    "state": "West Virginia",
+    "country": "United States",
+    "context": "A small town at the confluence of the Potomac and Shenandoah rivers; 2020 population 269."
+  },
+  "logical_radius_m": 1000,
+  "candidate_pages": [
+    {
+      "candidate_id": "C01",
+      "pageid": 900001,
+      "title": "Harpers Ferry station",
+      "url": "https://en.wikipedia.org/wiki/Harpers_Ferry_station",
+      "latitude": 39.32444,
+      "longitude": -77.73111,
+      "distance_from_anchor_m": 138.7,
+      "extract": "Harpers Ferry station is a railway station in Harpers Ferry, West Virginia. It is served by Amtrak intercity service and the MARC Brunswick Line commuter service. The station has two side platforms serving two tracks. Its address is 120 Potomac Street. The historic station building was rebuilt in 1894."
+    },
+    {
+      "candidate_id": "C02",
+      "pageid": 900002,
+      "title": "Jefferson Rock",
+      "url": "https://en.wikipedia.org/wiki/Jefferson_Rock",
+      "latitude": 39.322611,
+      "longitude": -77.733278,
+      "distance_from_anchor_m": 140.6,
+      "extract": "Jefferson Rock is a rock formation on the Appalachian Trail in Harpers Ferry, West Virginia. It consists of several large masses of Harpers shale piled one upon another and overlooks the Shenandoah River just before its confluence with the Potomac River. Its elevation is 417 feet. The upper slab is supported by stone pillars installed in the nineteenth century."
+    },
+    {
+      "candidate_id": "C03",
+      "pageid": 900003,
+      "title": "Lockwood House (Harpers Ferry)",
+      "url": "https://en.wikipedia.org/wiki/Lockwood_House_(Harpers_Ferry)",
+      "latitude": 39.32371,
+      "longitude": -77.73549,
+      "distance_from_anchor_m": 302.2,
+      "extract": "Lockwood House is a historic building in Harpers Ferry, West Virginia, on the east side of Camp Hill at 360 Fillmore Street, high above the town. It is a large stone-and-brick residence built in 1848 for the paymaster of the Harpers Ferry Armory. It later served several military and educational uses and became the first building of Storer College."
+    }
+  ],
+  "enrichment": []
+}

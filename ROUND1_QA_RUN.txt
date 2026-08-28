@@ -1,0 +1,68 @@
+PASS static UI contract — entry/confirm/field/sparse/mobile/reduced-motion surfaces present
+TAP version 13
+# (node:2390) ExperimentalWarning: Type Stripping is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: boundedWords never exceeds the retrieval contract
+ok 1 - boundedWords never exceeds the retrieval contract
+  ---
+  duration_ms: 1.083822
+  type: 'test'
+  ...
+# Subtest: Taft-style census settlement stubs are rejected as weak evidence
+ok 2 - Taft-style census settlement stubs are rejected as weak evidence
+  ---
+  duration_ms: 0.34308
+  type: 'test'
+  ...
+# Subtest: materially descriptive local pages survive the pre-Gatherer filter
+ok 3 - materially descriptive local pages survive the pre-Gatherer filter
+  ---
+  duration_ms: 0.269068
+  type: 'test'
+  ...
+# Subtest: logical radius stops at the smallest radius with three useful candidates
+ok 4 - logical radius stops at the smallest radius with three useful candidates
+  ---
+  duration_ms: 0.156016
+  type: 'test'
+  ...
+# (node:2391) ExperimentalWarning: Type Stripping is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: exact Worker /api/field route keeps Taft sparse and enrichment off-map
+ok 5 - exact Worker /api/field route keeps Taft sparse and enrichment off-map
+  ---
+  duration_ms: 31.724289
+  type: 'test'
+  ...
+# Subtest: exact Worker /api/search fallback returns coordinate-bearing place candidates without a geocoder key
+ok 6 - exact Worker /api/search fallback returns coordinate-bearing place candidates without a geocoder key
+  ---
+  duration_ms: 1.908393
+  type: 'test'
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 147.152478
+VALID
+PASS static_check — VALID
+PASS taft_candidate — VALID
+PASS taft_gather — VALID
+PASS ney_candidate — VALID
+PASS taft_synth_structure — VALID
+PASS prepared_candidate — VALID
+PASS single_place_movement — NONE/unverified
+PASS synth_payload_boundary — raw source fields absent
+PASS canary_extract_budget — INVALID: candidate extract word budget exceeded
+PASS canary_enrichment_term — INVALID: enrichment lacks explicit local term
+PASS canary_gather_plot — INVALID: fiction field leaked into Gatherer
+PASS canary_gather_source — INVALID: unknown selected source
+PASS canary_two_paragraphs — INVALID: multiple paragraphs
+PASS canary_binding — INVALID: binding offsets
+TOTAL 14 PASS 14
+ROUND1 QA: PASS for dependency-free/static/Worker candidate checks

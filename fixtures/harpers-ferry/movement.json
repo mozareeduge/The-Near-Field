@@ -1,0 +1,22 @@
+{
+  "state": "RELATIONAL_UNVERIFIED",
+  "route_verified": false,
+  "order": [
+    "P01",
+    "P02",
+    "P03"
+  ],
+  "total_distance_m": 502.1,
+  "legs": [
+    {
+      "from": "P01",
+      "to": "P02",
+      "distance_m": 275.9
+    },
+    {
+      "from": "P02",
+      "to": "P03",
+      "distance_m": 226.1
+    }
+  ]
+}
