@@ -38,6 +38,7 @@ export interface RuntimeEnv {
   GATHERER_MODEL?: string;
   SYNTHESIZER_MODEL?: string;
   ORS_API_KEY?: string;
+  ALLOWED_ORIGINS?: string;
 }
 
 export const GATHERER_PROMPT = `# Gatherer
@@ -220,14 +221,34 @@ export const SYNTHESIS_SCHEMA = {
   }
 } as const;
 
-function response(request: Request, body: unknown, status = 200) {
-  const origin = request.headers.get('Origin') || '*';
-  return new Response(JSON.stringify(body), { status, headers: {
+function allowedOrigins(env: RuntimeEnv): string[] | '*' {
+  if (!env.ALLOWED_ORIGINS) return '*';
+  return env.ALLOWED_ORIGINS.split(',').map(o => o.trim()).filter(Boolean);
+}
+
+function response(request: Request, env: RuntimeEnv, body: unknown, status = 200) {
+  const origin = request.headers.get('Origin');
+  const allowed = allowedOrigins(env);
+  const allow = allowed === '*' ? (origin || '*') : (origin && allowed.includes(origin) ? origin : '');
+  const headers: Record<string, string> = {
     'content-type': 'application/json; charset=utf-8',
-    'access-control-allow-origin': origin,
+    'cache-control': 'no-store',
     'access-control-allow-methods': 'GET, POST, OPTIONS',
     'access-control-allow-headers': 'Content-Type', 'vary': 'Origin'
-  }});
+  };
+  if (allow) headers['access-control-allow-origin'] = allow;
+  return new Response(JSON.stringify(body), { status, headers });
+}
+
+const MAX_BODY_BYTES = 200_000;
+
+async function parseBoundedBody(request: Request): Promise<{ ok: true; value: unknown } | { ok: false; status: number; error: string }> {
+  const declared = request.headers.get('content-length');
+  if (declared && Number(declared) > MAX_BODY_BYTES) return { ok: false, status: 413, error: 'Request body too large' };
+  const text = await request.text();
+  if (text.length > MAX_BODY_BYTES) return { ok: false, status: 413, error: 'Request body too large' };
+  try { return { ok: true, value: JSON.parse(text) }; }
+  catch { return { ok: false, status: 400, error: 'Invalid JSON body' }; }
 }
 
 async function sha256(text: string) {
@@ -468,35 +489,43 @@ async function orsMovement(env: RuntimeEnv, anchor: {lat:number;lon:number}, pla
   }
 }
 
-async function parseBody(request: Request) { try { return await request.json() as any; } catch { return null; } }
-
 export async function handleGather(request: Request, env: RuntimeEnv) {
-  const body=await parseBody(request); if(!isRecord(body)||!isRecord(body.field)) return response(request,{error:'field is required'},400);
+  const parsed=await parseBoundedBody(request); if(!parsed.ok) return response(request,env,{error:parsed.error},parsed.status);
+  const body=parsed.value; if(!isRecord(body)||!isRecord(body.field)) return response(request,env,{error:'field is required'},400);
   const field=body.field as CandidateField, runId=typeof body.run_id==='string'?body.run_id:crypto.randomUUID();
   try {
     const model=env.GATHERER_MODEL||'@cf/zai-org/glm-4.7-flash';
     const {output,meta}=await runStructured(env,model,GATHERER_PROMPT,gatherPayload(field,runId,body.anchor_granularity),GATHERER_SCHEMA as any,(o)=>validateGatherer(o,field));
-    return response(request,{run_id:runId,gatherer:output,meta});
-  } catch(error) { return response(request,{error:error instanceof Error?error.message:'Gatherer failed',validation_errors:(error as any)?.validation_errors||null},422); }
+    return response(request,env,{run_id:runId,gatherer:output,meta});
+  } catch(error) { return response(request,env,{error:error instanceof Error?error.message:'Gatherer failed',validation_errors:(error as any)?.validation_errors||null},422); }
 }
 
+// Movement must revalidate the selected-places packet against the original
+// field, exactly like Synthesizer does -- otherwise a client could skip
+// /api/gather entirely and post arbitrary coordinates as "selected_places",
+// using this endpoint (and the server's ORS credential) to route or tamper
+// with points that were never actually selected from real evidence.
 export async function handleMovement(request: Request, env: RuntimeEnv) {
-  const body=await parseBody(request); if(!isRecord(body)||!isRecord(body.gatherer)||!isRecord(body.anchor)) return response(request,{error:'anchor and gatherer are required'},400);
-  const gatherer=body.gatherer as GathererOutput;
-  try { const result=await orsMovement(env,body.anchor as any,gatherer.selected_places); return response(request,result); }
-  catch(error){return response(request,{error:error instanceof Error?error.message:'Movement failed'},422);}
+  const parsed=await parseBoundedBody(request); if(!parsed.ok) return response(request,env,{error:parsed.error},parsed.status);
+  const body=parsed.value;
+  if(!isRecord(body)||!isRecord(body.gatherer)||!isRecord(body.anchor)||!isRecord(body.field)) return response(request,env,{error:'anchor, field and gatherer are required'},400);
+  const field=body.field as CandidateField, gatherer=body.gatherer as GathererOutput;
+  const gatherErrors=validateGatherer(gatherer,field); if(gatherErrors.length) return response(request,env,{error:'Gatherer packet invalid',validation_errors:gatherErrors},422);
+  try { const result=await orsMovement(env,body.anchor as any,gatherer.selected_places); return response(request,env,result); }
+  catch(error){return response(request,env,{error:error instanceof Error?error.message:'Movement failed'},422);}
 }
 
 export async function handleSynthesize(request: Request, env: RuntimeEnv) {
-  const body=await parseBody(request); if(!isRecord(body)||!isRecord(body.field)||!isRecord(body.gatherer)||!isRecord(body.movement)) return response(request,{error:'field, gatherer, movement are required'},400);
+  const parsed=await parseBoundedBody(request); if(!parsed.ok) return response(request,env,{error:parsed.error},parsed.status);
+  const body=parsed.value; if(!isRecord(body)||!isRecord(body.field)||!isRecord(body.gatherer)||!isRecord(body.movement)) return response(request,env,{error:'field, gatherer, movement are required'},400);
   const field=body.field as CandidateField,gatherer=body.gatherer as GathererOutput,movement=body.movement as Movement,runId=typeof body.run_id==='string'?body.run_id:crypto.randomUUID();
-  const gatherErrors=validateGatherer(gatherer,field); if(gatherErrors.length) return response(request,{error:'Gatherer packet invalid',validation_errors:gatherErrors},422);
-  if((movement.state==='VERIFIED')!==movement.route_verified) return response(request,{error:'Movement verification invariant failed'},422);
+  const gatherErrors=validateGatherer(gatherer,field); if(gatherErrors.length) return response(request,env,{error:'Gatherer packet invalid',validation_errors:gatherErrors},422);
+  if((movement.state==='VERIFIED')!==movement.route_verified) return response(request,env,{error:'Movement verification invariant failed'},422);
   try {
     const model=env.SYNTHESIZER_MODEL||'@cf/meta/llama-4-scout-17b-16e-instruct';
     const system=`${SYNTHESIZER_PROMPT}\n\n${APP_BINDING_EXTENSION}`;
     const payload=buildSynthInput(runId,field,gatherer,movement);
     const {output,meta}=await runStructured(env,model,system,payload,SYNTHESIS_SCHEMA as any,(o)=>validateSynthesis(o,gatherer));
-    return response(request,{run_id:runId,result:output,meta});
-  } catch(error){return response(request,{error:error instanceof Error?error.message:'Synthesizer failed',validation_errors:(error as any)?.validation_errors||null},422);}
+    return response(request,env,{run_id:runId,result:output,meta});
+  } catch(error){return response(request,env,{error:error instanceof Error?error.message:'Synthesizer failed',validation_errors:(error as any)?.validation_errors||null},422);}
 }

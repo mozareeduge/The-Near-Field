@@ -13,16 +13,19 @@ export async function searchPlaces(query: string, signal?: AbortSignal, proximit
 }
 
 export async function fetchField(anchor: { label: string | null; coordinate: { lat: number; lon: number } }, signal?: AbortSignal) {
-  const url = new URL(`${API_BASE}/api/field`);
-  url.searchParams.set('lat', String(anchor.coordinate.lat));
-  url.searchParams.set('lon', String(anchor.coordinate.lon));
-  if (anchor.label) url.searchParams.set('label', anchor.label);
+  // POST with a JSON body, not GET with the coordinate in the query string --
+  // an exact location must not land in browser history, server access logs,
+  // or a Referer header.
   // Preserve the participant's local calendar date instead of silently using
   // the Worker's UTC date near midnight.
   const d = new Date();
   const localDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  url.searchParams.set('date', localDate);
-  const response = await fetch(url, { signal });
+  const response = await fetch(`${API_BASE}/api/field`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ lat: anchor.coordinate.lat, lon: anchor.coordinate.lon, label: anchor.label, date: localDate }),
+    signal
+  });
   const data = await response.json() as CandidateField & { error?: string };
   if (!response.ok) throw new Error(data.error || `Field retrieval failed (${response.status})`);
   return data;
@@ -40,7 +43,7 @@ export function runGatherer(input: { run_id: string; field: CandidateField; anch
   return postJson<{run_id:string;gatherer:GathererOutput;meta:ModelMeta}>('/api/gather', input, signal);
 }
 
-export function computeMovement(input: { anchor: {lat:number;lon:number}; gatherer: GathererOutput }, signal?: AbortSignal) {
+export function computeMovement(input: { anchor: {lat:number;lon:number}; field: CandidateField; gatherer: GathererOutput }, signal?: AbortSignal) {
   return postJson<{movement:Movement;route_geometry:RouteGeometry|null;provider_meta:Record<string,unknown>}>('/api/movement', input, signal);
 }
 

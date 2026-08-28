@@ -48,7 +48,11 @@ test('exact Worker /api/field route keeps Taft sparse and enrichment off-map', a
   const realFetch = globalThis.fetch;
   globalThis.fetch = mockWikipediaFetch();
   try {
-    const req = new Request('https://worker.test/api/field?lat=31.74944&lon=54.20889&label=Taft%2C%20Iran&date=2026-08-26');
+    const req = new Request('https://worker.test/api/field', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ lat: 31.74944, lon: 54.20889, label: 'Taft, Iran', date: '2026-08-26' })
+    });
     const res = await worker.fetch(req, {});
     assert.equal(res.status, 200);
     const body = await res.json();

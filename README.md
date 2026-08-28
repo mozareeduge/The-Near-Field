@@ -1,65 +1,83 @@
-# Nearby Field — Round 2 candidate
+# Nearby Field
 
-**Candidate:** `NF-R2-0.2.0`  
-**Parent:** `NF-R1-0.1.0`  
-**Round objective:** complete the first literary encounter without collapsing retrieval, selection, movement, and prose into one opaque model call.
+A locative literary web artwork. A location becomes a bounded Wikipedia
+evidence field, a selected constellation of 1–5 places, an optional verified
+walking route, and one English paragraph materially dependent on that local
+field.
 
-Implemented causal path:
+```text
+place → field → Gatherer → selected constellation → movement → Synthesizer → paragraph → map ↔ prose → again
+```
 
-`confirmed field → canonical Gatherer → validated selected constellation → truthful movement → canonical Synthesizer + binding extension → one paragraph → map ⇄ prose`
+It is not a chat interface, a trip planner, a GIS dashboard, or a Wikipedia
+browser. See `NEXT_ROUND_INPUT/authority/10_PRODUCT_AND_INTERACTION.md` and
+`12_VISUAL_CARTOGRAPHIC_SYSTEM.md` for the product/design contract this
+build is held to.
 
-## What changed in Round 2
+## Status
 
-- Added separate Worker endpoints for Gatherer, movement, and Synthesizer so each stage is independently retryable and prior valid state survives later failure.
-- Embedded the canonical Gatherer and Synthesizer static roles exactly; added prompt-fidelity regression tests.
-- Added schema-shaped Workers AI requests, output validation, exact candidate/source identity checks, one bounded model repair attempt, and run metadata.
-- Added ORS Matrix + Directions adapter. `VERIFIED` is impossible unless the exact ordered points receive route-provider evidence and a route LineString. Without that evidence the system returns `RELATIONAL_UNVERIFIED`; one selected place returns `NONE`.
-- Added visible selected-state map behavior while preserving unselected field objects as residue/context.
-- Added one-paragraph validation, used-place validation, strict mention/reference offsets, structural bindings, and evidence-ID validation.
-- Added shared map/prose object activation for mouse, keyboard, focus, and touch/click paths.
-- Added failure recovery, `again`, provenance, and an accessible non-canvas encounter summary.
-- Superseded the legacy Harpers Ferry `VERIFIED` fixture in the current Round-2 fixture; the legacy file is preserved explicitly as historical evidence.
+**Release verdict: `READY_WITH_KNOWN_RISKS`.** See `RELEASE_STATE.md` for
+the full reasoning and `KNOWN_LIMITS.md` for exactly what's unverified and
+why. Short version: the app builds, runs, and passes every deterministic
+check available in this environment, including a security pass that found
+and fixed real issues. What's *not* verified here is live-provider behavior
+(routing, model literary quality, geocoding, map tiles) — this sandbox's
+network egress is blocked to all of those providers, and no live credentials
+are configured. That's a proof gap, not a known defect.
 
-## Run surfaces
+## Repo layout
 
-### Production source
+- `apps/web/` — the canonical React + TypeScript + MapLibre application.
+- `apps/worker/` — the Cloudflare Worker backend (search / field / gather /
+  movement / synthesize).
+- `packages/nearby-narrative/` — the canonical Gatherer/Synthesizer skill:
+  role texts, schemas, scripts, and its own deterministic test suite.
+- `NEXT_ROUND_INPUT/` — frozen product/design/QA authority carried into this
+  build.
+- `.claude/`, `.agents/`, `STYLESEED.md`, root `CLAUDE.md`/`AGENTS.md` —
+  StyleSeed vendored as a secondary craft/coherence gate on top of (never
+  instead of) the locked authority above. See `CLAUDE.md` for how the two
+  relate.
 
-- `apps/web/` — React + TypeScript + MapLibre interface
-- `apps/worker/` — field/search + Gatherer + movement + Synthesizer Worker
+## Run it
 
-Configuration is described in `.env.example`. The Workers AI binding is declared in `apps/worker/wrangler.jsonc`.
+```bash
+npm install
+npm run dev          # worker on :8787, web app on :5173 (Vite proxies via VITE_API_BASE)
+```
 
-### Dependency-free Round-2 encounter fixture
-
-Open `standalone-r2/index.html` in a normal browser. It contains local Harpers Ferry and Taft fixtures and demonstrates the Round-2 state grammar without claiming live AI/routing evidence.
-
-- default: Harpers Ferry, dense multi-node, `RELATIONAL_UNVERIFIED`
-- `?fixture=taft`: sparse/single-node, `NONE`
-- `?route=verified` is a visual fixture branch only; it is not provider proof.
+Configuration is in `.env.example`. Without `MAPTILER_API_KEY`, search falls
+back to a bounded Wikipedia coordinate search. Without `ORS_API_KEY`,
+multi-place movement is always `RELATIONAL_UNVERIFIED` (never fabricated as
+verified). `ALLOWED_ORIGINS` is required in production — see
+`RELEASE_STATE.md` for why.
 
 ## QA
 
-Run:
-
 ```bash
-./qa-round2.sh
+npm run qa       # = bash qa-release.sh
 ```
 
-Current deterministic result:
+Runs, against real builds (not a syntax-approximation gate): the full Node
+test suite (app, worker, and a dedicated security regression suite), the
+canonical Nearby Narrative suite, both static UI contracts, a real
+TypeScript + Vite build of the web app, and a real TypeScript build +
+`wrangler deploy --dry-run` of the Worker.
 
-- Round-2/Round-1 Node tests: **18/18 PASS**
-- inherited canonical Nearby Narrative suite: **14/14 PASS**
-- canonical skill static check: **VALID**
-- Round-1 and Round-2 static UI contracts: **PASS**
-- standalone JavaScript parse: **PASS**
-- selected TS/TSX syntax/transpile gate: **PASS**
+Current result: **26/26** app/worker/security tests, **14/14** canonical
+Nearby Narrative tests, both static UI contracts pass, both builds clean.
+Full breakdown in `QA_EVIDENCE.md`.
 
-See `ROUND2_RUNTIME_EVIDENCE.md` for what these results do and do not prove.
+## Documentation
 
-## Proof boundary
-
-This execution harness could not finish `npm install` and its system Chromium remained unusable for a headless browser run. Therefore this package does **not** claim a canonical React/MapLibre browser execution, a live Workers AI call, or a live ORS route. Those remain candidate-bound Round-3 verification items rather than being simulated into a green claim.
-
-## Continue
-
-Round 3 starts from `NEXT_ROUND_INPUT/README.md`.
+- `ARCHITECTURE.md` — system/data flow, layer boundaries.
+- `DESIGN_SYSTEM.md` — the visual/typographic/motion system and how the
+  build implements it.
+- `MODEL_EVALUATION.md` — Gatherer/Synthesizer model status and why live
+  comparative evaluation is a documented proof gap here.
+- `QA_EVIDENCE.md` — every check run this release, and its result.
+- `FINAL_DEFECT_REGISTER.md` — every defect found and fixed (or explicitly
+  not fixed and why) in this release pass.
+- `RELEASE_STATE.md` — the verdict and its reasoning.
+- `KNOWN_LIMITS.md` — what remains unverified, and exactly what would close
+  each gap.

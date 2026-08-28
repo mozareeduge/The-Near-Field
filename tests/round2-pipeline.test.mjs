@@ -48,7 +48,7 @@ test('Gatherer endpoint stays red after one bounded retry', async()=>{
 });
 
 test('Movement without routing evidence is relational-unverified, never VERIFIED', async()=>{
-  const res=await worker.fetch(jsonReq('https://nf.test/api/movement',{anchor:field.anchor,gatherer}),{});
+  const res=await worker.fetch(jsonReq('https://nf.test/api/movement',{anchor:field.anchor,field,gatherer}),{});
   assert.equal(res.status,200); const body=await res.json();
   assert.equal(body.movement.state,'RELATIONAL_UNVERIFIED'); assert.equal(body.movement.route_verified,false); assert.equal(body.route_geometry,null);
   assert.deepEqual(new Set(body.movement.order),new Set(['P01','P02','P03']));
@@ -63,7 +63,7 @@ test('Movement becomes VERIFIED only with exact ORS matrix + directions evidence
     throw new Error('unexpected fetch '+url);
   };
   try {
-    const res=await worker.fetch(jsonReq('https://nf.test/api/movement',{anchor:field.anchor,gatherer}),{ORS_API_KEY:'test-key'});
+    const res=await worker.fetch(jsonReq('https://nf.test/api/movement',{anchor:field.anchor,field,gatherer}),{ORS_API_KEY:'test-key'});
     assert.equal(res.status,200); const body=await res.json();
     assert.equal(body.movement.state,'VERIFIED'); assert.equal(body.movement.route_verified,true); assert.equal(body.route_geometry.provider,'openrouteservice'); assert.equal(body.route_geometry.geojson.type,'LineString'); assert.equal(calls.length,2);
   } finally { globalThis.fetch=realFetch; }
@@ -75,7 +75,7 @@ test('ORS directions failure downgrades to relational-unverified', async()=>{
     ? new Response(JSON.stringify({distances:[[0,180,410],[180,0,230],[410,230,0]],durations:[[0,160,370],[160,0,210],[370,210,0]]}),{status:200})
     : new Response('no route',{status:503});
   try {
-    const res=await worker.fetch(jsonReq('https://nf.test/api/movement',{anchor:field.anchor,gatherer}),{ORS_API_KEY:'test-key'});
+    const res=await worker.fetch(jsonReq('https://nf.test/api/movement',{anchor:field.anchor,field,gatherer}),{ORS_API_KEY:'test-key'});
     const body=await res.json(); assert.equal(body.movement.state,'RELATIONAL_UNVERIFIED'); assert.equal(body.route_geometry,null);
   } finally { globalThis.fetch=realFetch; }
 });
@@ -103,9 +103,26 @@ test('Invalid paragraph binding is a red test', async()=>{
   assert.equal(res.status,422); assert.equal(ai.calls.length,2);
 });
 
+test('Movement rejects a selected-places packet that was never validated against the supplied field', async()=>{
+  // A client could skip /api/gather entirely and post arbitrary coordinates
+  // disguised as "selected_places" straight to /api/movement. This must be
+  // revalidated against the real field, exactly like Synthesizer does.
+  const forged=structuredClone(gatherer);
+  forged.selected_places[0].latitude = forged.selected_places[0].latitude + 5;
+  const res=await worker.fetch(jsonReq('https://nf.test/api/movement',{anchor:field.anchor,field,gatherer:forged}),{});
+  assert.equal(res.status,422);
+  const body=await res.json();
+  assert.ok(body.validation_errors.some(x=>x.includes('coordinate mismatch')));
+});
+
+test('Movement requires field in the request body (cannot be omitted to skip revalidation)', async()=>{
+  const res=await worker.fetch(jsonReq('https://nf.test/api/movement',{anchor:field.anchor,gatherer}),{});
+  assert.equal(res.status,400);
+});
+
 test('Taft enrichment cannot enter movement because movement accepts selected geographic places only', async()=>{
   const taftField=JSON.parse(fs.readFileSync(path.join(root,'packages/nearby-narrative/tests/fixtures/taft-candidate.json'),'utf8'));
   const taftGather=JSON.parse(fs.readFileSync(path.join(root,'packages/nearby-narrative/tests/fixtures/taft-gatherer.json'),'utf8'));
-  const res=await worker.fetch(jsonReq('https://nf.test/api/movement',{anchor:taftField.anchor,gatherer:taftGather}),{}); const body=await res.json();
+  const res=await worker.fetch(jsonReq('https://nf.test/api/movement',{anchor:taftField.anchor,field:taftField,gatherer:taftGather}),{}); const body=await res.json();
   assert.equal(body.movement.state,'NONE'); assert.deepEqual(body.movement.order,['P01']); assert.equal(JSON.stringify(body).includes('E01'),false);
 });

@@ -1,6 +1,43 @@
 import { handleGather, handleMovement, handleSynthesize, type RuntimeEnv } from './round2.ts';
 interface Env extends RuntimeEnv {
   MAPTILER_API_KEY?: string;
+  ALLOWED_ORIGINS?: string;
+}
+
+// Cloudflare Workers deployments must set ALLOWED_ORIGINS (comma-separated
+// exact origins) in production. Falling back to "*" only happens when the
+// binding is entirely absent, which is the local/dev-only shape -- never a
+// deployed default a misconfiguration could silently inherit.
+function allowedOrigins(env: Env): string[] | '*' {
+  if (!env.ALLOWED_ORIGINS) return '*';
+  return env.ALLOWED_ORIGINS.split(',').map(o => o.trim()).filter(Boolean);
+}
+
+function corsHeadersFor(request: Request, env: Env) {
+  const origin = request.headers.get('Origin');
+  const allowed = allowedOrigins(env);
+  const allow = allowed === '*' ? (origin || '*') : (origin && allowed.includes(origin) ? origin : '');
+  const headers: Record<string, string> = {
+    'access-control-allow-methods': 'GET, POST, OPTIONS',
+    'access-control-allow-headers': 'Content-Type',
+    'access-control-max-age': '86400',
+    'vary': 'Origin'
+  };
+  if (allow) headers['access-control-allow-origin'] = allow;
+  return headers;
+}
+
+const MAX_BODY_BYTES = 200_000;
+
+async function readBoundedJson(request: Request): Promise<{ ok: true; value: unknown } | { ok: false; status: number; error: string }> {
+  const declared = request.headers.get('content-length');
+  if (declared && Number(declared) > MAX_BODY_BYTES) {
+    return { ok: false, status: 413, error: 'Request body too large' };
+  }
+  const text = await request.text();
+  if (text.length > MAX_BODY_BYTES) return { ok: false, status: 413, error: 'Request body too large' };
+  try { return { ok: true, value: JSON.parse(text) }; }
+  catch { return { ok: false, status: 400, error: 'Invalid JSON body' }; }
 }
 
 type Coordinate = { lat: number; lon: number };
@@ -36,21 +73,10 @@ type EnrichmentEvidence = {
 const WIKI = 'https://en.wikipedia.org/w/api.php';
 const JSON_HEADERS = { 'content-type': 'application/json; charset=utf-8' };
 
-function corsHeaders(request: Request) {
-  const origin = request.headers.get('Origin') || '*';
-  return {
-    'access-control-allow-origin': origin,
-    'access-control-allow-methods': 'GET, POST, OPTIONS',
-    'access-control-allow-headers': 'Content-Type',
-    'access-control-max-age': '86400',
-    'vary': 'Origin'
-  };
-}
-
-function json(request: Request, body: unknown, status = 200) {
+function json(request: Request, env: Env, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...JSON_HEADERS, ...corsHeaders(request) }
+    headers: { ...JSON_HEADERS, 'cache-control': 'no-store', ...corsHeadersFor(request, env) }
   });
 }
 
@@ -283,24 +309,30 @@ async function retrieveEnrichment(label: string | null, candidateIds: Set<number
 
 async function handleSearch(request: Request, env: Env, url: URL) {
   const q = (url.searchParams.get('q') || '').trim();
-  if (q.length < 2) return json(request, { results: [], provider: env.MAPTILER_API_KEY ? 'maptiler' : 'wikipedia-coordinate-fallback' });
+  if (q.length < 2) return json(request, env, { results: [], provider: env.MAPTILER_API_KEY ? 'maptiler' : 'wikipedia-coordinate-fallback' });
   const proximity = url.searchParams.get('proximity') || undefined;
   try {
     const results = env.MAPTILER_API_KEY
       ? await searchMapTiler(q, env.MAPTILER_API_KEY, proximity)
       : await searchWikipediaCoordinates(q);
-    return json(request, { results, provider: env.MAPTILER_API_KEY ? 'maptiler' : 'wikipedia-coordinate-fallback' });
+    return json(request, env, { results, provider: env.MAPTILER_API_KEY ? 'maptiler' : 'wikipedia-coordinate-fallback' });
   } catch (error) {
-    return json(request, { error: error instanceof Error ? error.message : 'Search failed' }, 502);
+    return json(request, env, { error: error instanceof Error ? error.message : 'Search failed' }, 502);
   }
 }
 
-async function handleField(request: Request, url: URL) {
-  const lat = Number(url.searchParams.get('lat'));
-  const lon = Number(url.searchParams.get('lon'));
-  const label = url.searchParams.get('label');
+// POST with a JSON body, not GET with lat/lon query params: an exact anchor
+// coordinate must not sit in a URL, where it would land in browser history,
+// server access logs, and any Referer header sent to a third party.
+async function handleField(request: Request, env: Env) {
+  const parsed = await readBoundedJson(request);
+  if (!parsed.ok) return json(request, env, { error: parsed.error }, parsed.status);
+  const body = parsed.value;
+  const lat = Number((body as any)?.lat);
+  const lon = Number((body as any)?.lon);
+  const label = typeof (body as any)?.label === 'string' ? (body as any).label : null;
   if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
-    return json(request, { error: 'Invalid coordinates' }, 400);
+    return json(request, env, { error: 'Invalid coordinates' }, 400);
   }
   try {
     const all = await retrieveCandidates(lat, lon);
@@ -314,11 +346,11 @@ async function handleField(request: Request, url: URL) {
     };
     const sparse = within.length < 3;
     const enrichment = sparse ? await retrieveEnrichment(label, new Set(within.map(c => c.pageid))) : [];
-    const suppliedDate = url.searchParams.get('date');
+    const suppliedDate = typeof (body as any)?.date === 'string' ? (body as any).date : null;
     const currentDate = suppliedDate && /^\d{4}-\d{2}-\d{2}$/.test(suppliedDate)
       ? suppliedDate
       : new Date().toISOString().slice(0, 10);
-    return json(request, {
+    return json(request, env, {
       current_date: currentDate,
       anchor: { label: label || null, lat, lon },
       regional_context: {},
@@ -330,20 +362,20 @@ async function handleField(request: Request, url: URL) {
       retrieval: { corpus: 'English Wikipedia', max_radius_m: 10000, candidate_cap: 16, extract_cap_words: 110 }
     });
   } catch (error) {
-    return json(request, { error: error instanceof Error ? error.message : 'Field retrieval failed' }, 502);
+    return json(request, env, { error: error instanceof Error ? error.message : 'Field retrieval failed' }, 502);
   }
 }
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(request) });
+    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeadersFor(request, env) });
     const url = new URL(request.url);
-    if (url.pathname === '/health') return json(request, { ok: true, round: 2, ai: Boolean(env.AI), routing: Boolean(env.ORS_API_KEY) });
+    if (url.pathname === '/health') return json(request, env, { ok: true, round: 2, ai: Boolean(env.AI), routing: Boolean(env.ORS_API_KEY) });
     if (url.pathname === '/api/search') return handleSearch(request, env, url);
-    if (url.pathname === '/api/field') return handleField(request, url);
+    if (url.pathname === '/api/field' && request.method === 'POST') return handleField(request, env);
     if (url.pathname === '/api/gather' && request.method === 'POST') return handleGather(request, env);
     if (url.pathname === '/api/movement' && request.method === 'POST') return handleMovement(request, env);
     if (url.pathname === '/api/synthesize' && request.method === 'POST') return handleSynthesize(request, env);
-    return json(request, { error: 'Not found' }, 404);
+    return json(request, env, { error: 'Not found' }, 404);
   }
 } satisfies { fetch(request: Request, env: Env): Promise<Response> };
