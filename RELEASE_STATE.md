@@ -22,7 +22,7 @@ inferred). That rules out `READY`.
 
 It is not `NOT_READY`: every check this environment could actually run,
 ran, and is green — real TypeScript+Vite and TypeScript+Wrangler builds,
-26/26 app+worker+security tests, 14/14 canonical Nearby Narrative tests,
+35/35 app+worker+security tests, 14/14 canonical Nearby Narrative tests,
 both static UI contracts, real local HTTP requests against a real running
 Worker (not just mocks), and real Playwright interaction against the real
 component tree. A focused security pass found four real, concrete issues
@@ -31,26 +31,53 @@ string, unbounded request bodies, and an unvalidated `/api/movement`
 tampering/abuse vector) and fixed all four, with regression tests. That's
 materially more than "static tests are green."
 
+A follow-up pass took this from "verified but never deployed anywhere" to
+"has a real, working deploy pipeline": a GitHub Pages workflow for
+`apps/web`, a secret-gated Cloudflare Workers deploy workflow for
+`apps/worker`, a real Durable-Object-backed rate limiter (previously
+genuinely unimplemented), and GitHub-Pages-appropriate CSP delivery. None
+of that required credentials this sandbox lacks — it's checked-in
+configuration and code, verified by real builds and `wrangler deploy
+--dry-run`, not a live deploy. See `NEXT_STEPS.md` for exactly what a
+human still needs to supply to make it live.
+
 It is not `VERIFICATION_INCOMPLETE`: the remaining gaps are a categorical
-proof boundary (missing credentials, blocked network), not unfinished
-work — `KNOWN_LIMITS.md` names exactly what's outstanding and exactly what
-closes each item. Nothing was left ambiguous or unattempted within what
-this environment permits.
+proof boundary (missing credentials, blocked network, a repo-settings
+toggle no tool in this environment exposes), not unfinished work —
+`KNOWN_LIMITS.md` and `NEXT_STEPS.md` name exactly what's outstanding and
+exactly what closes each item. Nothing was left ambiguous or unattempted
+within what this environment permits.
 
 ## Known risks a deployer must resolve before going live
 
-1. **No rate limiting** on any endpoint (needs KV/Durable Objects
-   provisioned at deploy time — see `KNOWN_LIMITS.md`).
+1. ~~No rate limiting~~ **Implemented** as a Durable-Object-backed
+   sliding window (`apps/worker/src/rate-limit.ts`, wired into
+   `wrangler.jsonc`), unit tested (9/9,
+   `tests/rate-limit.test.mjs`). Unverified against a real deployed
+   Cloudflare account — see `KNOWN_LIMITS.md`.
 2. **`ALLOWED_ORIGINS` must be set** in production — it defaults to
    reflecting any origin, which is correct for local dev and wrong for a
-   deployment.
-3. **The CSP's `connect-src` has a literal placeholder**
-   (`REPLACE-WITH-DEPLOYED-WORKER-ORIGIN` in `apps/web/public/_headers`)
-   that must be filled in with the real deployed Worker origin, or the
-   app's own API calls will be blocked by its own policy.
+   deployment. `.github/workflows/deploy-worker.yml` now sets it
+   automatically on every deploy through that workflow (defaulting to the
+   GitHub Pages origin, overridable via the `ALLOWED_ORIGINS` repo
+   variable), so this risk only remains live for a manual `wrangler
+   deploy` run outside that workflow.
+3. **GitHub Pages cannot serve the `_headers`-format CSP** —
+   `apps/web/index.html` now carries an equivalent `<meta>` CSP with its
+   `connect-src` filled in from the `VITE_API_BASE` build variable, but a
+   `<meta>` CSP cannot carry `frame-ancestors`, and GitHub Pages has no
+   mechanism at all for `X-Frame-Options`/`X-Content-Type-Options`/
+   `Referrer-Policy`/`Permissions-Policy`. See `KNOWN_LIMITS.md` for what
+   closing this fully would require.
 4. **Live routing and live model behavior are unverified** — see
    `MODEL_EVALUATION.md` and `KNOWN_LIMITS.md`. The code paths are tested;
    the providers are not.
+5. **Nothing is deployed yet.** `.github/workflows/deploy-pages.yml` and
+   `.github/workflows/deploy-worker.yml` exist and build/type-check
+   cleanly, but GitHub Pages has not been confirmed enabled for this
+   repository (no tool in this environment could check or toggle that
+   setting) and no Cloudflare secrets exist in any sandbox this project
+   has run in. See `NEXT_STEPS.md` for the exact remaining steps.
 
 ## What this verdict does not cover
 

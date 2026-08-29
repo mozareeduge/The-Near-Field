@@ -8,18 +8,22 @@ inspected or inferred. Reproduce with `npm run qa` (= `bash qa-release.sh`).
 
 | Suite | Result |
 |---|---|
-| `node --experimental-strip-types --test tests/*.test.mjs` (app + worker + security) | **26/26 PASS** |
+| `node --experimental-strip-types --test tests/*.test.mjs` (app + worker + security + rate limiting) | **35/35 PASS** |
 | `packages/nearby-narrative/tests/run_tests.py` (canonical skill) | **14/14 PASS** |
 | `packages/nearby-narrative/scripts/static_check.py` | VALID |
 | `tests/static-ui-check.py` | PASS |
 | `tests/round2-ui-static.py` | PASS |
 
-The 26 Node tests break down as: the historical 18 (field logic, prompt
-fidelity, Round-2 pipeline, worker integration), 2 new regressions for the
-`/api/movement` tampering fix, and 6 new tests in `tests/security.test.mjs`
-for the security fixes made this release (GET-coordinate rejection, CORS
+The 35 Node tests break down as: the historical 18 (field logic, prompt
+fidelity, Round-2 pipeline, worker integration), 2 regressions for the
+`/api/movement` tampering fix, 6 in `tests/security.test.mjs` for the
+security fixes made in the v1.0.0 release (GET-coordinate rejection, CORS
 allow-list behavior in both directions, `no-store` header, oversized-body
-rejection, malformed-JSON handling).
+rejection, malformed-JSON handling), and 9 new in `tests/rate-limit.test.mjs`
+for the Durable-Object-backed rate limiter added in this pass (sliding-window
+math including eviction and retry-after, per-IP scoping via a fake in-memory
+Durable Object stub, `/health` exemption, and the dev-open no-binding
+fallback).
 
 ## Real builds
 
@@ -70,6 +74,15 @@ typography, spacing, and interaction were all verified independent of tile
 rendering (the map area renders as a flat placeholder color instead), but
 the cartographic layer's actual pixel appearance is unverified here.
 
+## Deploy pipeline (this pass)
+
+| Check | Result |
+|---|---|
+| `wrangler deploy --dry-run` resolves the new `RATE_LIMITER` Durable Object binding + `new_sqlite_classes` migration | clean, binding listed in output |
+| `vite build` with `VITE_API_BASE` set replaces `%VITE_API_BASE%` in the built CSP `<meta>` tag with the real origin | verified by inspecting `dist/index.html` directly |
+| `vite build` with `VITE_API_BASE` unset falls back to the checked-in empty `apps/web/.env.production` default, leaving `connect-src` closed (no literal `%VITE_API_BASE%` token) rather than open | verified by inspecting `dist/index.html` directly |
+| `.github/workflows/deploy-pages.yml`, `.github/workflows/deploy-worker.yml` | authored, not run — no live GitHub Actions runner in this sandbox; see `NEXT_STEPS.md` |
+
 ## Not executed here (proof gaps, not defects)
 
 | Item | Why | Detail |
@@ -77,7 +90,7 @@ the cartographic layer's actual pixel appearance is unverified here.
 | Live ORS routing (`VERIFIED` movement against the real API) | No `ORS_API_KEY`; ORS API also unreachable through this sandbox's proxy | `KNOWN_LIMITS.md` |
 | Live Workers AI Gatherer/Synthesizer calls, Round-3 comparative model evaluation | No live Cloudflare AI access from this sandbox | `MODEL_EVALUATION.md` |
 | Live MapTiler geocoding | No `MAPTILER_API_KEY` configured | app correctly falls back to the tested Wikipedia coordinate-search path |
-| Rate limiting | Genuinely unimplemented — needs a durable store (KV/Durable Objects) provisioned at deploy time | `KNOWN_LIMITS.md` |
+| Rate limiter against real Cloudflare infra | No live Cloudflare account access from this sandbox | The sliding-window logic and per-IP scoping *are* covered (9/9, `tests/rate-limit.test.mjs`) against a fake Durable Object stub; `wrangler deploy --dry-run` confirms the binding/migration resolve. See `KNOWN_LIMITS.md`. |
 
 The `VERIFIED`-movement code path (matrix + directions success) *is*
 covered by `tests/round2-pipeline.test.mjs` using mocked ORS responses that
