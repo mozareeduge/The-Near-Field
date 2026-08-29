@@ -1,0 +1,95 @@
+name: Deploy worker to Cloudflare
+
+# Deploys apps/worker (the search/field/gather/movement/synthesize API) to
+# Cloudflare Workers. Gated on repo secrets that do not exist in any
+# sandbox this project has been built in -- this workflow is wired up but
+# will not run a real deploy until a human adds them. See NEXT_STEPS.md.
+#
+# Required repository secrets (Settings -> Secrets and variables ->
+# Actions -> Secrets):
+#   CLOUDFLARE_API_TOKEN   - Workers Scripts:Edit permission at minimum
+#   CLOUDFLARE_ACCOUNT_ID  - the target Cloudflare account
+# Optional provider secrets (the worker runs without them, using its
+# documented fallbacks -- see KNOWN_LIMITS.md):
+#   MAPTILER_API_KEY       - geocoding; falls back to Wikipedia coordinate search
+#   ORS_API_KEY            - OpenRouteService walking routes; falls back to
+#                             an unverified coordinate-relation movement state
+# Optional repository variable (Settings -> Secrets and variables ->
+# Actions -> Variables):
+#   ALLOWED_ORIGINS         - comma-separated exact origins allowed to call
+#                             this API. Defaults to the GitHub Pages origin
+#                             (https://mozareeduge.github.io) if not set, so
+#                             a deploy through this workflow never falls
+#                             back to the wildcard dev default -- see
+#                             RELEASE_STATE.md known risk #2.
+#
+# The job is skipped entirely (not failed) when CLOUDFLARE_API_TOKEN is
+# absent, so this workflow is inert -- and CI stays green -- until those
+# secrets are added.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/worker/**'
+      - '.github/workflows/deploy-worker.yml'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: cloudflare-production
+    steps:
+      - name: Check required secrets are configured
+        id: gate
+        run: |
+          if [ -z "${{ secrets.CLOUDFLARE_API_TOKEN }}" ] || [ -z "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::CLOUDFLARE_API_TOKEN and/or CLOUDFLARE_ACCOUNT_ID repo secrets are not set -- skipping deploy. See NEXT_STEPS.md."
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Resolve ALLOWED_ORIGINS
+        id: origins
+        run: |
+          value="${{ vars.ALLOWED_ORIGINS }}"
+          if [ -z "$value" ]; then value="https://mozareeduge.github.io"; fi
+          echo "value=$value" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.ready == 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.gate.outputs.ready == 'true'
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.gate.outputs.ready == 'true'
+        run: npm ci
+
+      - name: Type-check worker
+        if: steps.gate.outputs.ready == 'true'
+        working-directory: apps/worker
+        run: npx tsc --noEmit
+
+      - name: Deploy to Cloudflare Workers
+        if: steps.gate.outputs.ready == 'true'
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: apps/worker
+          secrets: |
+            MAPTILER_API_KEY
+            ORS_API_KEY
+            ALLOWED_ORIGINS
+        env:
+          MAPTILER_API_KEY: ${{ secrets.MAPTILER_API_KEY }}
+          ORS_API_KEY: ${{ secrets.ORS_API_KEY }}
+          ALLOWED_ORIGINS: ${{ steps.origins.outputs.value }}

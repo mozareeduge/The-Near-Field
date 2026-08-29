@@ -1,7 +1,13 @@
 import { handleGather, handleMovement, handleSynthesize, type RuntimeEnv } from './round2.ts';
+import { RateLimiter, DEFAULT_RATE_LIMIT_MAX, DEFAULT_RATE_LIMIT_WINDOW_S } from './rate-limit.ts';
+export { RateLimiter };
+
 interface Env extends RuntimeEnv {
   MAPTILER_API_KEY?: string;
   ALLOWED_ORIGINS?: string;
+  RATE_LIMITER?: DurableObjectNamespace;
+  RATE_LIMIT_MAX?: string;
+  RATE_LIMIT_WINDOW_S?: string;
 }
 
 // Cloudflare Workers deployments must set ALLOWED_ORIGINS (comma-separated
@@ -73,10 +79,10 @@ type EnrichmentEvidence = {
 const WIKI = 'https://en.wikipedia.org/w/api.php';
 const JSON_HEADERS = { 'content-type': 'application/json; charset=utf-8' };
 
-function json(request: Request, env: Env, body: unknown, status = 200) {
+function json(request: Request, env: Env, body: unknown, status = 200, extraHeaders?: Record<string, string>) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...JSON_HEADERS, 'cache-control': 'no-store', ...corsHeadersFor(request, env) }
+    headers: { ...JSON_HEADERS, 'cache-control': 'no-store', ...corsHeadersFor(request, env), ...extraHeaders }
   });
 }
 
@@ -366,11 +372,36 @@ async function handleField(request: Request, env: Env) {
   }
 }
 
+// Per-client sliding-window rate limit on the API routes, backed by the
+// RateLimiter Durable Object (rate-limit.ts). No RATE_LIMITER binding is
+// the local/dev-only shape (Wrangler needs a migration to provision the
+// class -- see wrangler.jsonc) -- deliberately open in that case, the same
+// pattern this file already uses for ALLOWED_ORIGINS.
+async function rateLimitResponse(request: Request, env: Env, url: URL): Promise<Response | null> {
+  if (!env.RATE_LIMITER) return null;
+  const key = request.headers.get('cf-connecting-ip') || 'unknown';
+  const max = Number(env.RATE_LIMIT_MAX) || DEFAULT_RATE_LIMIT_MAX;
+  const windowS = Number(env.RATE_LIMIT_WINDOW_S) || DEFAULT_RATE_LIMIT_WINDOW_S;
+  const id = env.RATE_LIMITER.idFromName(key);
+  const stub = env.RATE_LIMITER.get(id);
+  const checkUrl = `https://rate-limit.internal/check?max=${max}&windowS=${windowS}`;
+  const decisionRes = await stub.fetch(checkUrl, { method: 'POST' });
+  const decision = await decisionRes.json() as { allowed: boolean; retryAfterSeconds: number };
+  if (decision.allowed) return null;
+  return json(request, env, { error: `Rate limit exceeded for ${url.pathname}. Try again later.` }, 429, {
+    'retry-after': String(decision.retryAfterSeconds)
+  });
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeadersFor(request, env) });
     const url = new URL(request.url);
-    if (url.pathname === '/health') return json(request, env, { ok: true, round: 2, ai: Boolean(env.AI), routing: Boolean(env.ORS_API_KEY) });
+    if (url.pathname === '/health') return json(request, env, { ok: true, round: 2, ai: Boolean(env.AI), routing: Boolean(env.ORS_API_KEY), rateLimited: Boolean(env.RATE_LIMITER) });
+    if (url.pathname.startsWith('/api/')) {
+      const limited = await rateLimitResponse(request, env, url);
+      if (limited) return limited;
+    }
     if (url.pathname === '/api/search') return handleSearch(request, env, url);
     if (url.pathname === '/api/field' && request.method === 'POST') return handleField(request, env);
     if (url.pathname === '/api/gather' && request.method === 'POST') return handleGather(request, env);
