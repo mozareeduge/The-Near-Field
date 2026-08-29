@@ -1,0 +1,68 @@
+name: Deploy web to GitHub Pages
+
+# Builds apps/web with Vite and publishes the static output to GitHub
+# Pages. Requires a one-time manual step: Settings -> Pages -> Source ->
+# "GitHub Actions" on this repository. See NEXT_STEPS.md.
+#
+# The deployed app calls a Cloudflare Worker for all data operations
+# (search/field/gather/movement/synthesize). That origin isn't known at
+# checkout time -- it's wired in as the VITE_API_BASE repository variable
+# (Settings -> Secrets and variables -> Actions -> Variables) once the
+# worker is deployed (see deploy-worker.yml). Until that variable is set,
+# the build falls back to the same http://localhost:8787 default the local
+# dev server uses, so the deployed app will not reach a live API -- it will
+# still build and serve, exercising every static/interaction path that
+# doesn't need the network.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/web/**'
+      - '.github/workflows/deploy-pages.yml'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build apps/web
+        working-directory: apps/web
+        env:
+          VITE_API_BASE: ${{ vars.VITE_API_BASE }}
+        run: npx tsc -b && npx vite build
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
