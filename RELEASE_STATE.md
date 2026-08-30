@@ -55,13 +55,12 @@ within what this environment permits.
    `wrangler.jsonc`), unit tested (9/9,
    `tests/rate-limit.test.mjs`). Unverified against a real deployed
    Cloudflare account — see `KNOWN_LIMITS.md`.
-2. **`ALLOWED_ORIGINS` must be set** in production — it defaults to
-   reflecting any origin, which is correct for local dev and wrong for a
-   deployment. `.github/workflows/deploy-worker.yml` now sets it
-   automatically on every deploy through that workflow (defaulting to the
-   GitHub Pages origin, overridable via the `ALLOWED_ORIGINS` repo
-   variable), so this risk only remains live for a manual `wrangler
-   deploy` run outside that workflow.
+2. ~~`ALLOWED_ORIGINS` must be set~~ **Confirmed set on the live deploy.**
+   `.github/workflows/deploy-worker.yml` sets it automatically on every
+   deploy through that workflow (defaulting to the GitHub Pages origin,
+   overridable via the `ALLOWED_ORIGINS` repo variable) — verified by
+   inspecting the real successful run's log, not just the workflow source.
+   Only remains a risk for a manual `wrangler deploy` run outside CI.
 3. **GitHub Pages cannot serve the `_headers`-format CSP** —
    `apps/web/index.html` now carries an equivalent `<meta>` CSP with its
    `connect-src` filled in from the `VITE_API_BASE` build variable, but a
@@ -72,22 +71,28 @@ within what this environment permits.
 4. **Live routing and live model behavior are unverified** — see
    `MODEL_EVALUATION.md` and `KNOWN_LIMITS.md`. The code paths are tested;
    the providers are not.
-5. **The web app is live; the API is not yet.** PR #1 merged to `main`
-   and `.github/workflows/deploy-pages.yml` ran for real on that merge
-   (build + `actions/deploy-pages` both succeeded) —
-   `https://mozareeduge.github.io/The-Near-Field/` is a real, deployed
-   site. This sandbox's own network egress proxy blocks `github.io`
-   outright, so its actual pixels are unverified from here (same
-   documented restriction as OpenFreeMap/ORS/MapTiler) — GitHub Actions'
-   own success status is what this claim rests on, not a fetch from this
-   environment. `.github/workflows/deploy-worker.yml` also ran on that
-   merge and, exactly as designed, detected no `CLOUDFLARE_API_TOKEN`/
-   `CLOUDFLARE_ACCOUNT_ID` repo secrets and skipped cleanly (job
-   succeeded, all deploy steps skipped) rather than failing. Until those
-   secrets are added, the live site has no working API behind it — search/
-   field/gather/movement/synthesize will fail against
-   `http://localhost:8787` (the unconfigured `VITE_API_BASE` default).
-   See `NEXT_STEPS.md` for the exact remaining steps.
+5. ~~The web app is live; the API is not yet~~ **Both are live and
+   connected.** `https://mozareeduge.github.io/The-Near-Field/` (web) and
+   `https://nearby-field-r2.mozareeduge.workers.dev` (API, with the
+   `RATE_LIMITER` Durable Object and Workers AI bindings active) are both
+   real, deployed, and wired to each other — the Pages build's
+   `VITE_API_BASE` was confirmed in the build log to be the real Worker
+   origin, baked into both the JS `fetch()` calls and the CSP
+   `connect-src`. This sandbox's own network egress proxy blocks
+   `github.io`/`workers.dev` outright, so the actual pixels and live
+   request/response behavior are unverified from here (same documented
+   restriction as OpenFreeMap/ORS/MapTiler) — every claim above rests on
+   GitHub Actions' own success status and real deploy logs (worker script
+   size, bindings table, deployed URL, `ALLOWED_ORIGINS` value), not a
+   fetch performed from this environment. Getting here from a cold
+   Cloudflare account required two real-world steps no sandbox could
+   simulate or skip past: registering a `workers.dev` subdomain, and
+   fixing two `wrangler-action` step-ordering/edge-case bugs only visible
+   against a real account (see git history on `deploy-worker.yml`). What's
+   still genuinely unverified: live ORS/MapTiler/OpenFreeMap behavior
+   (`ORS_API_KEY`/`MAPTILER_API_KEY` were deliberately left unset — the
+   worker's tested fallbacks are what's live right now), and the rate
+   limiter under real concurrent edge traffic.
 
 ## What this verdict does not cover
 
