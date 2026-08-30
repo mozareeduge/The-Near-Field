@@ -97,6 +97,24 @@ jobs:
           workingDirectory: apps/worker
           command: deploy
 
+      # wrangler-action's `secrets` input hard-fails ("Value for secret X
+      # not found in environment") if a listed name has no value at all --
+      # it does not treat an unset optional GitHub secret as a no-op. Only
+      # ALLOWED_ORIGINS is guaranteed a value (resolved above with a
+      # fallback); MAPTILER_API_KEY/ORS_API_KEY are genuinely optional, so
+      # build the secrets list dynamically and only include the ones that
+      # are actually configured.
+      - name: Determine which optional secrets are configured
+        if: steps.gate.outputs.ready == 'true'
+        id: which_secrets
+        run: |
+          list="ALLOWED_ORIGINS"
+          if [ -n "${{ secrets.MAPTILER_API_KEY }}" ]; then list="$list"$'\n'"MAPTILER_API_KEY"; fi
+          if [ -n "${{ secrets.ORS_API_KEY }}" ]; then list="$list"$'\n'"ORS_API_KEY"; fi
+          echo "list<<SECRET_LIST_EOF" >> "$GITHUB_OUTPUT"
+          echo "$list" >> "$GITHUB_OUTPUT"
+          echo "SECRET_LIST_EOF" >> "$GITHUB_OUTPUT"
+
       - name: Upload worker secrets
         if: steps.gate.outputs.ready == 'true'
         uses: cloudflare/wrangler-action@v4
@@ -104,10 +122,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: apps/worker
-          secrets: |
-            MAPTILER_API_KEY
-            ORS_API_KEY
-            ALLOWED_ORIGINS
+          secrets: ${{ steps.which_secrets.outputs.list }}
         env:
           MAPTILER_API_KEY: ${{ secrets.MAPTILER_API_KEY }}
           ORS_API_KEY: ${{ secrets.ORS_API_KEY }}
