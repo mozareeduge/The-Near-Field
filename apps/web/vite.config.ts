@@ -1,8 +1,41 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
+import { createRequire } from 'node:module';
+import { copyFileSync, mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+
+const require = createRequire(import.meta.url);
+
+// MapLibre GL resolves its tile-decoding worker script at *runtime* via
+// `new URL('./maplibre-gl-worker.mjs', import.meta.url)`, computed from a
+// template literal Vite's static asset scanner can't trace -- so Vite
+// never copies that file into the build on its own, and the app silently
+// gets a 404 for it in production (masked in `vite preview`, which fakes a
+// 200 via its SPA fallback for any missing path). That worker file itself
+// has a plain `import ... from "./maplibre-gl-shared.mjs"` -- a real
+// runtime module the browser resolves relative to the worker's own URL,
+// so it needs to sit right next to it too. Copy both into dist/assets/
+// under their exact expected filenames. Confirmed via a real headless-
+// browser run against the actual built output (not `vite preview`, whose
+// SPA fallback masks a missing file as a fake 200), not assumed from docs.
+function copyMaplibreWorker(): Plugin {
+  let outDir = 'dist';
+  return {
+    name: 'copy-maplibre-worker',
+    apply: 'build',
+    configResolved(config) { outDir = config.build.outDir; },
+    closeBundle() {
+      const assetsDir = join(outDir, 'assets');
+      mkdirSync(assetsDir, { recursive: true });
+      for (const file of ['maplibre-gl-worker.mjs', 'maplibre-gl-shared.mjs']) {
+        copyFileSync(require.resolve(`maplibre-gl/dist/${file}`), join(assetsDir, file));
+      }
+    }
+  };
+}
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), copyMaplibreWorker()],
   base: './',
   build: {
     rollupOptions: {
