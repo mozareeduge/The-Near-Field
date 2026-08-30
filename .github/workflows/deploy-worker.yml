@@ -78,7 +78,26 @@ jobs:
         working-directory: apps/worker
         run: npx tsc --noEmit
 
+      # Two steps, deliberately in this order: wrangler-action's `secrets`
+      # input runs `wrangler secret put`, which attaches a secret to an
+      # *existing* script -- it does not create one. Folding deploy and
+      # secrets into a single step with no explicit `command` (the original
+      # shape here) makes the action skip the actual `wrangler deploy` and
+      # go straight to uploading secrets, which fails outright on a brand
+      # new Cloudflare account with "Failed to upload secrets" because the
+      # script the secrets would attach to doesn't exist yet. Deploying
+      # first (idempotent on every later run) guarantees the script exists
+      # before secrets are ever set on it.
       - name: Deploy to Cloudflare Workers
+        if: steps.gate.outputs.ready == 'true'
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: apps/worker
+          command: deploy
+
+      - name: Upload worker secrets
         if: steps.gate.outputs.ready == 'true'
         uses: cloudflare/wrangler-action@v4
         with:
