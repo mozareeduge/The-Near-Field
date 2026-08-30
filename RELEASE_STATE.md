@@ -72,12 +72,22 @@ within what this environment permits.
 4. **Live routing and live model behavior are unverified** — see
    `MODEL_EVALUATION.md` and `KNOWN_LIMITS.md`. The code paths are tested;
    the providers are not.
-5. **Nothing is deployed yet.** `.github/workflows/deploy-pages.yml` and
-   `.github/workflows/deploy-worker.yml` exist and build/type-check
-   cleanly, but GitHub Pages has not been confirmed enabled for this
-   repository (no tool in this environment could check or toggle that
-   setting) and no Cloudflare secrets exist in any sandbox this project
-   has run in. See `NEXT_STEPS.md` for the exact remaining steps.
+5. **The web app is live; the API is not yet.** PR #1 merged to `main`
+   and `.github/workflows/deploy-pages.yml` ran for real on that merge
+   (build + `actions/deploy-pages` both succeeded) —
+   `https://mozareeduge.github.io/The-Near-Field/` is a real, deployed
+   site. This sandbox's own network egress proxy blocks `github.io`
+   outright, so its actual pixels are unverified from here (same
+   documented restriction as OpenFreeMap/ORS/MapTiler) — GitHub Actions'
+   own success status is what this claim rests on, not a fetch from this
+   environment. `.github/workflows/deploy-worker.yml` also ran on that
+   merge and, exactly as designed, detected no `CLOUDFLARE_API_TOKEN`/
+   `CLOUDFLARE_ACCOUNT_ID` repo secrets and skipped cleanly (job
+   succeeded, all deploy steps skipped) rather than failing. Until those
+   secrets are added, the live site has no working API behind it — search/
+   field/gather/movement/synthesize will fail against
+   `http://localhost:8787` (the unconfigured `VITE_API_BASE` default).
+   See `NEXT_STEPS.md` for the exact remaining steps.
 
 ## What this verdict does not cover
 

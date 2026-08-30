@@ -10,19 +10,18 @@ this project actually live.
 
 Do these roughly in order — each unblocks the next.
 
-## 1. Enable GitHub Pages for this repository
+## 1. ~~Enable GitHub Pages for this repository~~ Done — live
 
-No tool available in this session can read or change a repo's Pages
-settings, so whether this is already on is unverified.
-
-- Go to **Settings → Pages** on `mozareeduge/The-Near-Field`.
-- Under **Build and deployment → Source**, choose **GitHub Actions** (not
-  "Deploy from a branch").
-- Nothing else to configure — `.github/workflows/deploy-pages.yml` handles
-  the rest once this PR is merged to `main` (it triggers on push to `main`
-  under `apps/web/**`, or manually via **Actions → Deploy web to GitHub
-  Pages → Run workflow**).
-- Once it runs once, the site is at `https://mozareeduge.github.io/The-Near-Field/`.
+Done. PR #1 merged to `main`, `.github/workflows/deploy-pages.yml` ran for
+real (build + `actions/deploy-pages` both succeeded), and
+`https://mozareeduge.github.io/The-Near-Field/` is a live, deployed site.
+This sandbox's network egress proxy blocks `github.io` outright (same
+restriction as OpenFreeMap/ORS/MapTiler), so its actual pixels are
+unverified from here — open it yourself to confirm it renders as expected,
+especially the map tiles, which no environment this project has run in
+could ever check. `deploy-worker.yml` also ran on that same merge and
+correctly skipped itself (no Cloudflare secrets yet) rather than failing —
+proceed to step 2.
 
 ## 2. Create a Cloudflare account and API token (if you don't have one)
 
