@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0B0C0C" />
+    <!--
+      GitHub Pages serves only static files -- it does not honor the
+      Cloudflare-Pages-style `_headers` file in apps/web/public (that file
+      still applies if this app is ever deployed to Cloudflare Pages
+      instead). A <meta http-equiv> CSP is the only enforcement mechanism
+      GitHub Pages supports, and it cannot carry every directive: no
+      frame-ancestors (silently ignored by the HTML spec in a meta tag),
+      no X-Frame-Options, X-Content-Type-Options, or Referrer-Policy
+      equivalent at all. Those response-header-only protections are a real,
+      unclosable gap on GitHub Pages -- see KNOWN_LIMITS.md.
+      %VITE_API_BASE% is replaced by Vite at build time from the
+      VITE_API_BASE env var (see .github/workflows/deploy-pages.yml); it
+      must be the deployed Worker's origin with no trailing slash.
+    -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://tiles.openfreemap.org; font-src 'self'; connect-src 'self' https://tiles.openfreemap.org %VITE_API_BASE%; worker-src 'self' blob:; base-uri 'none'; form-action 'none'; object-src 'none'" />
+    <title>Nearby Field</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

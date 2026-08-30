@@ -1,0 +1,153 @@
+{
+  "current_date": "2026-08-25",
+  "regional_context": {
+    "settlement": "Harpers Ferry",
+    "county": "Jefferson County",
+    "state": "West Virginia",
+    "country": "United States",
+    "context": "A small town at the confluence of the Potomac and Shenandoah rivers; 2020 population 269."
+  },
+  "selected_places": [
+    {
+      "place_id": "P01",
+      "source_candidate_id": "C01",
+      "title": "Harpers Ferry station",
+      "url": "https://en.wikipedia.org/wiki/Harpers_Ferry_station",
+      "latitude": 39.32444,
+      "longitude": -77.73111,
+      "facts": [
+        {
+          "evidence_id": "F01",
+          "text": "The station is in Harpers Ferry and is served by Amtrak and the MARC Brunswick Line."
+        },
+        {
+          "evidence_id": "F02",
+          "text": "It has two side platforms serving two tracks."
+        }
+      ],
+      "particulars": [
+        {
+          "evidence_id": "D01",
+          "text": "The station address is 120 Potomac Street."
+        },
+        {
+          "evidence_id": "D02",
+          "text": "The historic station building was rebuilt in 1894."
+        }
+      ],
+      "affordances": [
+        "a place to wait for, meet, or leave someone using rail",
+        "two platform sides can separate people who are both at the station"
+      ],
+      "semantic_lures": [
+        "train travel as an automatic metaphor for life transition",
+        "railroad nostalgia"
+      ]
+    },
+    {
+      "place_id": "P02",
+      "source_candidate_id": "C02",
+      "title": "Jefferson Rock",
+      "url": "https://en.wikipedia.org/wiki/Jefferson_Rock",
+      "latitude": 39.322611,
+      "longitude": -77.733278,
+      "facts": [
+        {
+          "evidence_id": "F03",
+          "text": "Jefferson Rock is on the Appalachian Trail in Harpers Ferry."
+        },
+        {
+          "evidence_id": "F04",
+          "text": "It overlooks the Shenandoah River just before the river meets the Potomac."
+        }
+      ],
+      "particulars": [
+        {
+          "evidence_id": "D03",
+          "text": "The formation is made of masses of Harpers shale."
+        },
+        {
+          "evidence_id": "D04",
+          "text": "Its elevation is 417 feet."
+        }
+      ],
+      "affordances": [
+        "a recognizable intermediate point on a route through town",
+        "a place where a carried object can be set down briefly"
+      ],
+      "semantic_lures": [
+        "the overlook as instant revelation",
+        "rock as permanence or memory"
+      ]
+    },
+    {
+      "place_id": "P03",
+      "source_candidate_id": "C03",
+      "title": "Lockwood House (Harpers Ferry)",
+      "url": "https://en.wikipedia.org/wiki/Lockwood_House_(Harpers_Ferry)",
+      "latitude": 39.32371,
+      "longitude": -77.73549,
+      "facts": [
+        {
+          "evidence_id": "F05",
+          "text": "Lockwood House stands on the east side of Camp Hill, high above Harpers Ferry."
+        },
+        {
+          "evidence_id": "F06",
+          "text": "The building is at 360 Fillmore Street."
+        }
+      ],
+      "particulars": [
+        {
+          "evidence_id": "D05",
+          "text": "It is a large stone-and-brick residence built in 1848."
+        },
+        {
+          "evidence_id": "D06",
+          "text": "It later became the first building of Storer College."
+        }
+      ],
+      "affordances": [
+        "an upper-town landmark for giving directions",
+        "a fixed point from which someone can begin or end an errand"
+      ],
+      "semantic_lures": [
+        "historic building as a container for memory",
+        "elevation as moral or emotional ascent"
+      ]
+    }
+  ],
+  "local_material": [],
+  "relations": [],
+  "unknown_current_conditions": [
+    "weather",
+    "crowd level",
+    "opening status",
+    "traffic",
+    "train timing",
+    "prices",
+    "current events"
+  ],
+  "movement": {
+    "state": "VERIFIED",
+    "route_verified": true,
+    "order": [
+      "P01",
+      "P02",
+      "P03"
+    ],
+    "total_distance_m": null,
+    "legs": [
+      {
+        "from": "P01",
+        "to": "P02",
+        "distance_m": null
+      },
+      {
+        "from": "P02",
+        "to": "P03",
+        "distance_m": null
+      }
+    ]
+  }
+}

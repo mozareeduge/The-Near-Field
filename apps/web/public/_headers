@@ -1,0 +1,11 @@
+# Cloudflare Pages static response headers. Fill in the deployed Worker
+# origin below before shipping -- connect-src must name it exactly so the
+# app can call its own API; it cannot be discovered automatically at build
+# time because the Worker is deployed and versioned separately from this
+# static site.
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(self), camera=(), microphone=()
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://tiles.openfreemap.org; font-src 'self'; connect-src 'self' https://tiles.openfreemap.org https://REPLACE-WITH-DEPLOYED-WORKER-ORIGIN; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'; form-action 'none'; object-src 'none'

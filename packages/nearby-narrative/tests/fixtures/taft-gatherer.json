@@ -1,0 +1,45 @@
+{
+  "selected_places": [
+    {
+      "place_id": "P01",
+      "source_candidate_id": "C01",
+      "title": "Taft, Iran",
+      "url": "https://en.wikipedia.org/wiki/Taft%2C_Iran",
+      "latitude": 31.74944,
+      "longitude": 54.20889,
+      "facts": [
+        {
+          "evidence_id": "P01-F1",
+          "text": "Taft is about 20 kilometres southwest of Yazd."
+        }
+      ],
+      "particulars": [
+        {
+          "evidence_id": "P01-D1",
+          "text": "Sadri Garden is in the Bagh-e Golestan neighbourhood in southeastern Taft."
+        }
+      ],
+      "affordances": [
+        "A place name or neighbourhood can operate as an ordinary local reference."
+      ],
+      "semantic_lures": [
+        "Garden/history can invite an automatic picturesque or nostalgic treatment."
+      ]
+    }
+  ],
+  "local_material": [
+    {
+      "evidence_id": "LM1",
+      "source_id": "E01",
+      "text": "At Taft, watermills were placed at the qanat outflow before irrigation of fields."
+    }
+  ],
+  "relations": [],
+  "unknown_current_conditions": [
+    "weather",
+    "crowd level",
+    "opening status",
+    "traffic",
+    "temporary events"
+  ]
+}

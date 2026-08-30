@@ -1,0 +1,31 @@
+{
+  "anchor": {
+    "label": "Taft, Iran",
+    "lat": 31.74944,
+    "lon": 54.20889
+  },
+  "geosearch": [
+    {
+      "pageid": 1,
+      "title": "Taft, Iran",
+      "lat": 31.74944,
+      "lon": 54.20889,
+      "dist": 0,
+      "url": "https://en.wikipedia.org/wiki/Taft%2C_Iran",
+      "extract": "Taft is a city in Yazd province and the capital of Taft County. It is about twenty kilometres southwest of Yazd and lies at an altitude of 1,560 metres. Sadri Garden, also called Bagh-e Namir, is in the Bagh-e Golestan neighbourhood in southeastern Taft."
+    }
+  ],
+  "enrichment_term": "Taft",
+  "enrichment_search": [
+    {
+      "pageid": 99,
+      "title": "Qanat",
+      "snippet": "Watermills within a qanat system had to be carefully situated. At Taft and Ardestan mills were placed at the outflow from the qanat, before irrigation of the fields."
+    },
+    {
+      "pageid": 100,
+      "title": "Taft, Fars",
+      "snippet": "Taft is also the name of a village elsewhere; this result is not tied to Yazd material."
+    }
+  ]
+}
