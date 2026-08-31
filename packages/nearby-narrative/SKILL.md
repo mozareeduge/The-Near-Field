@@ -3,7 +3,7 @@ name: nearby-narrative
 description: Create one finalized English fictional paragraph from a real location using bounded nearby English-Wikipedia evidence. Use for locative, nearby, cartographic, or Wikipedia-grounded micro-narrative tasks; supports standalone locations and prepared geographic fields.
 compatibility: Works best with network access or a prepared field. Strict mode needs two fresh model invocations; pedestrian routing is optional.
 metadata:
-  version: "7.0.0"
+  version: "7.1.0"
   architecture: "life-field-two-call"
 ---
 

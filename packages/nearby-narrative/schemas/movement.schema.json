@@ -59,5 +59,82 @@
         }
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "NONE"
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "route_verified": {
+            "const": false
+          },
+          "order": {
+            "maxItems": 1
+          },
+          "legs": {
+            "maxItems": 0
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "VERIFIED"
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "route_verified": {
+            "const": true
+          },
+          "order": {
+            "minItems": 2
+          },
+          "legs": {
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "RELATIONAL_UNVERIFIED"
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "route_verified": {
+            "const": false
+          },
+          "order": {
+            "minItems": 2
+          },
+          "legs": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ]
 }

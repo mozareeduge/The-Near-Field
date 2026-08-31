@@ -21,7 +21,7 @@ run("ney_candidate",[py,str(root/"scripts/validate.py"),"candidate",str(root/"te
 run("taft_synth_structure",[py,str(root/"scripts/validate.py"),"synth",str(root/"tests/fixtures/taft-gatherer.json"),str(root/"tests/fixtures/taft-synth-simulation.json")])
 
 # Offline candidate preparation simulation
-tmp=Path(tempfile.mkdtemp(prefix="nnv7-"))
+tmp=Path(tempfile.mkdtemp(prefix="nnv7_1-"))
 prepared=tmp/"prepared.json"
 p=subprocess.run([py,str(root/"scripts/prepare_field.py"),"--fixture",str(root/"tests/fixtures/taft-raw-api.json"),
                   "--date","2026-08-24","--context","Yazd Iran"],capture_output=True,text=True)
@@ -74,6 +74,29 @@ run("canary_two_paragraphs",[py,str(root/"scripts/validate.py"),"synth",str(root
 x={"paragraph":"She was in Taft.","used_place_ids":["P01"],"bindings":[
     {"place_id":"P01","relation":"mention","start":100,"end":104,"evidence_ids":["P01-F1"]}]}
 run("canary_binding",[py,str(root/"scripts/validate.py"),"synth",str(root/"tests/fixtures/taft-gatherer.json"),str(dump("s2.json",x))],expect=1)
+
+# v7.1 regression guards from Round-1 false-greens
+x=json.loads(json.dumps(g)); x["local_material"]=[
+    {"evidence_id":f"XLM{i}","source_id":"E01","text":f"bounded local material {i}"} for i in range(5)]
+run("canary_gather_local_material_cap",[py,str(root/"scripts/validate.py"),"gather",str(root/"tests/fixtures/taft-candidate.json"),str(dump("g3.json",x))],expect=1)
+
+x=json.loads(json.dumps(g)); x["relations"]=[
+    {"relation_id":f"XR{i}","a":"P01","b":"P01","text":f"relation {i}"} for i in range(9)]
+run("canary_gather_relations_cap",[py,str(root/"scripts/validate.py"),"gather",str(root/"tests/fixtures/taft-candidate.json"),str(dump("g4.json",x))],expect=1)
+
+x={"paragraph":"She waited in Taft.","used_place_ids":[],"bindings":[]}
+run("canary_synth_nonempty_provenance",[py,str(root/"scripts/validate.py"),"synth",str(root/"tests/fixtures/taft-gatherer.json"),str(dump("s3.json",x))],expect=1)
+
+ms=json.load(open(root/"schemas/movement.schema.json",encoding="utf-8"))
+rules={}
+for rule in ms.get("allOf",[]):
+    state=rule.get("if",{}).get("properties",{}).get("state",{}).get("const")
+    if state: rules[state]=rule.get("then",{}).get("properties",{})
+assert rules["NONE"]["route_verified"].get("const") is False
+assert rules["NONE"]["order"].get("maxItems")==1 and rules["NONE"]["legs"].get("maxItems")==0
+assert rules["VERIFIED"]["route_verified"].get("const") is True and rules["VERIFIED"]["order"].get("minItems")==2
+assert rules["RELATIONAL_UNVERIFIED"]["route_verified"].get("const") is False and rules["RELATIONAL_UNVERIFIED"]["order"].get("minItems")==2
+results.append(("movement_schema_semantic_guards",True,"NONE/VERIFIED/RELATIONAL_UNVERIFIED constrained"))
 
 shutil.rmtree(tmp)
 for name,ok,obs in results:

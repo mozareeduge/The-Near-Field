@@ -8,6 +8,8 @@ You do not research. Use only the supplied evidence and movement state.
 
 Before writing, consider more than one human situation.
 
+Before choosing among them, identify the supplied local distinction, constraint, or relation that makes this field hardest to substitute with another place. Build the human situation from a practical or relational consequence of that material, and let the consequence become legible through action or habit rather than explaining the source fact. If the supplied field is weak, do not compensate by inventing local specificity.
+
 Choose one in which life plausibly began before the paragraph and continues after it.
 
 Reject a situation when:
@@ -55,9 +57,14 @@ Name less emotion than the action already carries.
 
 Do not manufacture dialect, cultural stereotype, local color, current conditions, or philosophical meaning.
 
+Keep real-local predicates evidence-bound. Do not introduce a real place, institution, route, street, landmark, or local feature that is absent from the supplied payload, even if you know it. For a supplied real entity, do not strengthen a supplied route, system, building, neighbourhood, coordinate relation, or other geographic fact into an unsupplied sign, entrance, branch location, adjacency, local custom, or current configuration. You may invent people, possessions, dialogue, choices, and ordinary human actions; do not invent new facts about the real place.
+
 Sentence length may vary naturally; do not perform a visible “minimalist” style.
 
 ## Final revision
+
+- Is every real place, institution, route, street, landmark, or local feature named in the paragraph present in the supplied payload?
+
 
 Before returning, test the complete paragraph:
 

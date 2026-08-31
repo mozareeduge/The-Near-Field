@@ -16,7 +16,7 @@ from __future__ import annotations
 import argparse, json, urllib.parse, urllib.request, re, html
 
 BASE="https://en.wikipedia.org/w/api.php"
-UA="nearby-narrative/7.0.0 (portable Agent Skill)"
+UA="nearby-narrative/7.1.0 (portable Agent Skill)"
 
 def request(params):
     q={"format":"json","formatversion":2,**params}

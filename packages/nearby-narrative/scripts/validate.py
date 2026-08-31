@@ -45,13 +45,17 @@ def gather(c,g):
             for e in p.get(bucket,[]):
                 if e["evidence_id"] in evidence: bad("duplicate evidence_id")
                 evidence.add(e["evidence_id"])
-    for x in g.get("local_material",[]):
+    local_material=g.get("local_material",[])
+    relations=g.get("relations",[])
+    if len(local_material)>4: bad("local_material cap exceeded")
+    if len(relations)>8: bad("relations cap exceeded")
+    for x in local_material:
         if x.get("source_id") not in sids: bad("unknown enrichment source")
         if x["evidence_id"] in evidence: bad("duplicate evidence_id")
         evidence.add(x["evidence_id"])
     forbidden={"character","characters","plot","story","story_idea","mood","theme","dialogue","protagonist"}
     if forbidden.intersection(g.keys()): bad("fiction field leaked into Gatherer")
-    for r in g.get("relations",[]):
+    for r in relations:
         if r.get("a") not in pids or r.get("b") not in pids: bad("relation uses unknown place")
     print("VALID")
 
@@ -65,7 +69,9 @@ def synth(g,s):
     if not para: bad("blank paragraph")
     if "\n\n" in para: bad("multiple paragraphs")
     if words(para)>260: bad("paragraph unexpectedly over budget")
-    for pid in s.get("used_place_ids",[]):
+    used_place_ids=s.get("used_place_ids",[])
+    if not used_place_ids: bad("used_place_ids must be non-empty")
+    for pid in used_place_ids:
         if pid not in pids: bad("unknown used_place_id")
     for b in s.get("bindings",[]):
         if b.get("place_id") not in pids: bad("binding unknown place")
