@@ -97,7 +97,7 @@ function wikiUrl(params: Record<string, string | number | undefined>) {
 
 async function wiki<T>(params: Record<string, string | number | undefined>): Promise<T> {
   const response = await fetch(wikiUrl({ action: 'query', format: 'json', formatversion: 2, ...params }), {
-    headers: { 'Api-User-Agent': 'NearbyField/0.1 (Round-1 prototype; locative literary artwork)' }
+    headers: { 'User-Agent': 'NearbyField/1.0 (https://github.com/mozareeduge/The-Near-Field; locative literary artwork)' }
   });
   if (!response.ok) throw new Error(`Wikipedia request failed: ${response.status}`);
   return response.json() as Promise<T>;
