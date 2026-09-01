@@ -220,7 +220,7 @@ export const SYNTHESIS_SCHEMA = {
   type:'object', additionalProperties:false, required:['paragraph','used_place_ids','bindings'],
   properties:{
     paragraph:{type:'string',minLength:1},
-    used_place_ids:{type:'array',uniqueItems:true,items:{type:'string'}},
+    used_place_ids:{type:'array',items:{type:'string'}},
     bindings:{type:'array',items:{type:'object',additionalProperties:false,required:['place_id','relation','start','end','evidence_ids'],properties:{
       place_id:{type:'string'}, relation:{enum:['mention','reference','structural']}, start:{type:['integer','null']}, end:{type:['integer','null']}, evidence_ids:{type:'array',items:{type:'string'}}
     }}}
