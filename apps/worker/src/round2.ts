@@ -74,6 +74,12 @@ Also return:
 - supported relations;
 - unknown current-condition categories.
 
+### Relation
+relation_id is any id you assign (R01...). a and b MUST be the exact
+place_id values you used in selected_places — never candidate IDs,
+titles, or invented references. The relation text states the concrete
+spatial/functional connection between the two places.
+
 ### Fact
 Short source-supported proposition.
 
