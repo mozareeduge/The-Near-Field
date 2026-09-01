@@ -350,6 +350,19 @@ function parseAiResult(result: unknown): unknown {
     return r;
   }
   if (typeof result === 'string') { try { return JSON.parse(result); } catch { return result; } }
+  // Some Workers-AI models return the OpenAI chat-completions envelope
+  // (id/object/choices/usage...) instead of the unwrapped `response`
+  // string. Unwrap choices[0].message.content — the actual model output —
+  // before handing it to the validators, otherwise the envelope's own keys
+  // fail the structured-output check (live finding 2026-09-01, glm-4.7-flash).
+  if (isRecord(result) && Array.isArray(result.choices) && result.choices.length > 0) {
+    const first = result.choices[0];
+    if (isRecord(first) && isRecord(first.message)) {
+      const content = first.message.content;
+      if (typeof content === 'string') { try { return JSON.parse(content); } catch { return content; } }
+      return content;
+    }
+  }
   return result;
 }
 
