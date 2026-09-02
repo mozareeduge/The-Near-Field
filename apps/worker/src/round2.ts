@@ -416,6 +416,12 @@ async function llmCall(
           { role: 'user', content: JSON.stringify(payload) }
         ],
         response_format: { type: 'json_schema', json_schema: { name: 'result', strict: true, schema } },
+        // glm-5.3-flash is a reasoning model: full-effort reasoning added 500+
+        // tokens and 2-4 minutes of latency per call, blowing past fetch
+        // timeouts live. Low effort keeps the structured discipline at a
+        // fraction of the latency (live-verified: 5.9s -> 1.3s on a probe).
+        reasoning: { effort: 'low' },
+        max_tokens: 8000,
         stream: false
       })
     });
@@ -459,8 +465,10 @@ async function runStructured(
       const call = await llmCall(env, provider, modelId, system + correction, payload, schema);
       parsed = call.parsed; usage = call.usage;
     } catch (error) {
-      // Transport failure: if OpenRouter was primary and Workers AI exists, fall back for this attempt.
-      if (provider === 'openrouter' && env.AI) {
+      // Transport failure: stay on OpenRouter for the retry — one transient
+      // error must not downgrade the whole run to the weaker fallback model.
+      // Fall back to Workers AI only on the final attempt.
+      if (provider === 'openrouter' && env.AI && attempt === 2) {
         provider = 'workers-ai';
         modelId = model;
         const call = await llmCall(env, provider, modelId, system + correction, payload, schema);
