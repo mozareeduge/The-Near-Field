@@ -111,6 +111,7 @@ jobs:
           list="ALLOWED_ORIGINS"
           if [ -n "${{ secrets.MAPTILER_API_KEY }}" ]; then list="$list"$'\n'"MAPTILER_API_KEY"; fi
           if [ -n "${{ secrets.ORS_API_KEY }}" ]; then list="$list"$'\n'"ORS_API_KEY"; fi
+          if [ -n "${{ secrets.OPENROUTER_API_KEY }}" ]; then list="$list"$'\n'"OPENROUTER_API_KEY"; fi
           echo "list<<SECRET_LIST_EOF" >> "$GITHUB_OUTPUT"
           echo "$list" >> "$GITHUB_OUTPUT"
           echo "SECRET_LIST_EOF" >> "$GITHUB_OUTPUT"
@@ -126,4 +127,5 @@ jobs:
         env:
           MAPTILER_API_KEY: ${{ secrets.MAPTILER_API_KEY }}
           ORS_API_KEY: ${{ secrets.ORS_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           ALLOWED_ORIGINS: ${{ steps.origins.outputs.value }}

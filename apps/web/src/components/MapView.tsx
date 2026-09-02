@@ -62,6 +62,56 @@ function routeGeoJSON(route: RouteGeometry | null): GeoJSON.FeatureCollection<Ge
   return route ? {type:'FeatureCollection',features:[{type:'Feature',properties:{provider:route.provider,verified:true},geometry:route.geojson}]} : emptyFC() as GeoJSON.FeatureCollection<GeoJSON.LineString>;
 }
 
+// Progressive reveal: return a LineString trimmed to the first `fraction` of
+// its length (walking the coordinate list, not interpolating — vertex
+// resolution is dense enough at this scale that vertex-stepping reads as a
+// smooth draw at 12-20 fps updates). fraction=1 returns the full line.
+function partialLine(geometry: GeoJSON.LineString, fraction: number): GeoJSON.LineString {
+  const coords = geometry.coordinates;
+  if (fraction >= 1 || coords.length < 2) return geometry;
+  // total planar length (fine for framing; web-mercator distortion is uniform at this scale)
+  const segLens: number[] = [];
+  let total = 0;
+  for (let i = 1; i < coords.length; i++) {
+    const dx = coords[i][0] - coords[i-1][0], dy = coords[i][1] - coords[i-1][1];
+    const len = Math.sqrt(dx*dx + dy*dy); segLens.push(len); total += len;
+  }
+  const target = total * Math.max(0, fraction);
+  const out: [number, number][] = [coords[0] as [number, number]];
+  let acc = 0;
+  for (let i = 1; i < coords.length; i++) {
+    if (acc + segLens[i-1] >= target) {
+      // interpolate the final partial segment so the tip moves continuously
+      const remain = target - acc, len = segLens[i-1];
+      if (len > 0) {
+        const t = remain / len;
+        out.push([coords[i-1][0] + (coords[i][0]-coords[i-1][0])*t, coords[i-1][1] + (coords[i][1]-coords[i-1][1])*t]);
+      }
+      break;
+    }
+    out.push(coords[i] as [number, number]);
+    acc += segLens[i-1];
+  }
+  return { type:'LineString', coordinates: out.length >= 2 ? out : [coords[0], coords[0]] as [number,number][] };
+}
+
+// Frame the given points with gentle padding — the auto-camera for the
+// connection sequence. No-op for <2 points.
+function framePoints(map: MapLibreMap, pts: [number, number][], opts: { padding?: number; duration?: number; maxZoom?: number } = {}) {
+  if (pts.length < 2) return;
+  const lons = pts.map(p => p[0]), lats = pts.map(p => p[1]);
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  map.fitBounds(
+    [[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]],
+    {
+      padding: opts.padding ?? 90,
+      maxZoom: opts.maxZoom ?? 15.5,
+      duration: reduced ? 0 : (opts.duration ?? 1400),
+      essential: true
+    }
+  );
+}
+
 function ensureLayers(map: MapLibreMap, anchor: Anchor | null, radiusM: number | null, candidates: CandidatePage[], selected: SelectedPlace[], movement: Movement | null, route: RouteGeometry | null) {
   if (!map.isStyleLoaded()) return;
   const anchorData = anchor ? anchorGeoJSON(anchor.coordinate) : emptyFC();
@@ -145,6 +195,60 @@ export const MapView = forwardRef<MapViewHandle, Props>(function MapView({ mode,
   useEffect(()=>{ const map=mapRef.current;if(!map||!map.getSource('nf-candidates'))return;if(activeCandidate.current!==null)map.setFeatureState({source:'nf-candidates',id:activeCandidate.current},{active:false});activeCandidate.current=activeCandidateId;if(activeCandidateId)map.setFeatureState({source:'nf-candidates',id:activeCandidateId},{active:true}); },[activeCandidateId,candidates]);
   useEffect(()=>{ const map=mapRef.current;if(map)map.getCanvas().style.cursor=pickMode?'crosshair':''; },[pickMode]);
   useEffect(()=>{ const map=mapRef.current;if(!map)return;const id=window.setTimeout(()=>map.resize(),360);return()=>window.clearTimeout(id); },[settled]);
+
+  // ── Connection sequence (auto-camera + progressive line reveal) ──────────
+  // While selecting: once 2+ places are chosen, glide the camera so the user
+  // SEES the nodes being threaded; draw the provisional relation line
+  // progressively (12 fps vertex-stepping reveal) instead of popping it in.
+  // When the verified route arrives: re-frame to the final passway and morph
+  // the route line in with the same reveal, fading the provisional thread.
+  // Reduced motion: camera jumps and opacity swaps only (authority §19).
+  const revealTimer = useRef<number | null>(null);
+  const stopReveal = () => { if (revealTimer.current !== null) { window.clearInterval(revealTimer.current); revealTimer.current = null; } };
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const run = () => {
+      const pts = selectedPlaces.map(p => [p.longitude, p.latitude] as [number, number]);
+      if (selectedPlaces.length >= 2 && !routeGeometry) {
+        // Selection thread: frame the chosen nodes, then draw the provisional line progressively.
+        framePoints(map, pts, { padding: 110, duration: 1400, maxZoom: 15 });
+        const provisional = relationGeoJSON(selectedPlaces, movement).features[0]?.geometry as GeoJSON.LineString | undefined;
+        if (provisional && provisional.coordinates.length >= 2) {
+          const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          const src = map.getSource('nf-relation') as GeoJSONSource | undefined;
+          if (src && !reduced) {
+            stopReveal();
+            const start = performance.now(), DURATION = 1200, FPS = 1000 / 12;
+            revealTimer.current = window.setInterval(() => {
+              const t = Math.min(1, (performance.now() - start) / DURATION);
+              (map.getSource('nf-relation') as GeoJSONSource).setData({ type:'FeatureCollection', features:[{ type:'Feature', properties:{verified:false}, geometry: partialLine(provisional, t) }] });
+              if (t >= 1) stopReveal();
+            }, FPS);
+          }
+        }
+      }
+      if (routeGeometry && selectedPlaces.length >= 2) {
+        // Verified passway arrived: re-frame so the final connection is fully in view.
+        const routePts = routeGeometry.geojson.coordinates.slice(-1).concat([[0,0]]).slice(0,1) as unknown as [number,number][];
+        void routePts; // framing uses node points; route follows the same extent
+        framePoints(map, pts, { padding: 90, duration: 1600, maxZoom: 15.5 });
+        const src = map.getSource('nf-route') as GeoJSONSource | undefined;
+        const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (src && !reduced) {
+          stopReveal();
+          const start = performance.now(), DURATION = 1800, FPS = 1000 / 14;
+          revealTimer.current = window.setInterval(() => {
+            const t = Math.min(1, (performance.now() - start) / DURATION);
+            (map.getSource('nf-route') as GeoJSONSource).setData({ type:'FeatureCollection', features:[{ type:'Feature', properties:{provider:routeGeometry.provider,verified:true}, geometry: partialLine(routeGeometry.geojson, t) }] });
+            if (t >= 1) stopReveal();
+          }, FPS);
+        }
+      }
+    };
+    if (map.isStyleLoaded()) run(); else map.once('style.load', run);
+    return stopReveal;
+  }, [selectedPlaces, movement, routeGeometry]);
 
   return <div className="map-shell" ref={container} aria-label="Interactive orientation, evidence field, selection and movement map" />;
 });

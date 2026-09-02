@@ -35,6 +35,9 @@ export type NearbyFieldSynthesis = { paragraph: string; used_place_ids: string[]
 
 export interface RuntimeEnv {
   AI?: { run(model: string, input: Record<string, unknown>, options?: Record<string, unknown>): Promise<unknown> };
+  OPENROUTER_API_KEY?: string;
+  OPENROUTER_GATHERER_MODEL?: string;
+  OPENROUTER_SYNTHESIZER_MODEL?: string;
   GATHERER_MODEL?: string;
   SYNTHESIZER_MODEL?: string;
   ORS_API_KEY?: string;
@@ -390,30 +393,87 @@ function usageFrom(result: unknown) {
   } : null;
 }
 
+// One LLM attempt: build the request for the active provider and normalize the
+// response into { parsed, usage, provider, model }.
+async function llmCall(
+  env: RuntimeEnv, provider: 'openrouter' | 'workers-ai', model: string, system: string,
+  payload: unknown, schema: Record<string, unknown>
+) {
+  if (provider === 'openrouter') {
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${env.OPENROUTER_API_KEY}`,
+        'Content-Type': 'application/json',
+        // OpenRouter attribution headers (optional but recommended)
+        'HTTP-Referer': 'https://mozareeduge.github.io',
+        'X-Title': 'The Near Field'
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: JSON.stringify(payload) }
+        ],
+        response_format: { type: 'json_schema', json_schema: { name: 'result', strict: true, schema } },
+        stream: false
+      })
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`OpenRouter ${res.status}: ${text.slice(0, 300)}`);
+    }
+    const json = await res.json() as Record<string, unknown>;
+    const parsed = parseAiResult(json);
+    return { parsed, usage: usageFrom(json), provider, model };
+  }
+  if (!env.AI) throw new Error('Workers AI binding is unavailable');
+  const result = await env.AI.run(model, {
+    messages: [
+      { role: 'system', content: system },
+      { role: 'user', content: JSON.stringify(payload) }
+    ],
+    response_format: { type: 'json_schema', json_schema: schema },
+    stream: false
+  });
+  return { parsed: parseAiResult(result), usage: usageFrom(result), provider, model };
+}
+
 async function runStructured(
   env: RuntimeEnv, model: string, system: string, payload: unknown, schema: Record<string, unknown>,
   validator: (output: unknown) => string[]
 ) {
-  if (!env.AI) throw new Error('Workers AI binding is unavailable');
   const started = Date.now();
+  // Primary: OpenRouter (owner key) when configured — falls back to the
+  // Workers AI binding only when the key is absent or the call fails.
+  let provider: 'openrouter' | 'workers-ai' = env.OPENROUTER_API_KEY ? 'openrouter' : 'workers-ai';
+  let modelId = env.OPENROUTER_API_KEY ? model : (env.GATHERER_MODEL || model);
+  // `model` param names the Workers-AI model; callers pass the OpenRouter id via env when present.
+  if (provider === 'workers-ai') modelId = model;
   let lastErrors: string[] = [];
   let lastRaw: unknown = null;
   for (let attempt = 1; attempt <= 2; attempt++) {
     const correction = attempt === 2 ? `\n\nYour previous structured output failed validation: ${lastErrors.join('; ')}. Correct only those failures and return the complete structured result.` : '';
-    const result = await env.AI.run(model, {
-      messages: [
-        { role: 'system', content: system + correction },
-        { role: 'user', content: JSON.stringify(payload) }
-      ],
-      response_format: { type: 'json_schema', json_schema: schema },
-      stream: false
-    });
-    lastRaw = result;
-    const parsed = parseAiResult(result);
+    let parsed: unknown; let usage: unknown;
+    try {
+      const call = await llmCall(env, provider, modelId, system + correction, payload, schema);
+      parsed = call.parsed; usage = call.usage;
+    } catch (error) {
+      // Transport failure: if OpenRouter was primary and Workers AI exists, fall back for this attempt.
+      if (provider === 'openrouter' && env.AI) {
+        provider = 'workers-ai';
+        modelId = model;
+        const call = await llmCall(env, provider, modelId, system + correction, payload, schema);
+        parsed = call.parsed; usage = call.usage;
+      } else {
+        throw error;
+      }
+    }
+    lastRaw = parsed;
     const errors = validator(parsed);
     if (!errors.length) return {
       output: parsed,
-      meta: { provider: 'cloudflare-workers-ai', model, attempts: attempt, latency_ms: Date.now()-started, usage: usageFrom(result), prompt_sha256: await sha256(system), schema_sha256: await sha256(JSON.stringify(schema)) }
+      meta: { provider, model: modelId, attempts: attempt, latency_ms: Date.now()-started, usage, prompt_sha256: await sha256(system), schema_sha256: await sha256(JSON.stringify(schema)) }
     };
     lastErrors = errors;
   }
@@ -521,7 +581,7 @@ export async function handleGather(request: Request, env: RuntimeEnv) {
   const body=parsed.value; if(!isRecord(body)||!isRecord(body.field)) return response(request,env,{error:'field is required'},400);
   const field=body.field as CandidateField, runId=typeof body.run_id==='string'?body.run_id:crypto.randomUUID();
   try {
-    const model=env.GATHERER_MODEL||'@cf/zai-org/glm-4.7-flash';
+    const model=env.OPENROUTER_API_KEY ? (env.OPENROUTER_GATHERER_MODEL||'z-ai/glm-5.3-flash') : (env.GATHERER_MODEL||'@cf/zai-org/glm-4.7-flash');
     const {output,meta}=await runStructured(env,model,GATHERER_PROMPT,gatherPayload(field,runId,body.anchor_granularity),GATHERER_SCHEMA as any,(o)=>validateGatherer(o,field));
     return response(request,env,{run_id:runId,gatherer:output,meta});
   } catch(error) { return response(request,env,{error:error instanceof Error?error.message:'Gatherer failed',validation_errors:(error as any)?.validation_errors||null},422); }
@@ -549,7 +609,7 @@ export async function handleSynthesize(request: Request, env: RuntimeEnv) {
   const gatherErrors=validateGatherer(gatherer,field); if(gatherErrors.length) return response(request,env,{error:'Gatherer packet invalid',validation_errors:gatherErrors},422);
   if((movement.state==='VERIFIED')!==movement.route_verified) return response(request,env,{error:'Movement verification invariant failed'},422);
   try {
-    const model=env.SYNTHESIZER_MODEL||'@cf/meta/llama-4-scout-17b-16e-instruct';
+    const model=env.OPENROUTER_API_KEY ? (env.OPENROUTER_SYNTHESIZER_MODEL||'z-ai/glm-5.3-flash') : (env.SYNTHESIZER_MODEL||'@cf/meta/llama-4-scout-17b-16e-instruct');
     const system=`${SYNTHESIZER_PROMPT}\n\n${APP_BINDING_EXTENSION}`;
     const payload=buildSynthInput(runId,field,gatherer,movement);
     const {output,meta}=await runStructured(env,model,system,payload,SYNTHESIS_SCHEMA as any,(o)=>validateSynthesis(o,gatherer));
