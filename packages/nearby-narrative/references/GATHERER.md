@@ -20,9 +20,11 @@ If enrichment evidence is supplied, select only material that adds concrete loca
 
 ## Return compact material
 
-For each selected place:
-- max 3 facts;
-- max 3 particulars;
+For each selected place, at least one fact and one particular drawn from
+that place's own extract — an empty facts or particulars list fails
+validation. Quote closely, do not generalize:
+- 1-3 facts;
+- 1-3 particulars;
 - max 2 neutral affordances;
 - max 2 semantic lures.
 
@@ -30,6 +32,12 @@ Also return:
 - max 4 selected local-material items from enrichment;
 - supported relations;
 - unknown current-condition categories.
+
+### Relation
+relation_id is any id you assign (R01...). a and b MUST be the exact
+place_id values you used in selected_places — never candidate IDs,
+titles, or invented references. The relation text states the concrete
+spatial/functional connection between the two places.
 
 ### Fact
 Short source-supported proposition.

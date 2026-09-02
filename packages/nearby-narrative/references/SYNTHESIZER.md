@@ -65,7 +65,6 @@ Sentence length may vary naturally; do not perform a visible “minimalist” st
 
 - Is every real place, institution, route, street, landmark, or local feature named in the paragraph present in the supplied payload?
 
-
 Before returning, test the complete paragraph:
 
 - Is geography causally/materially necessary?
