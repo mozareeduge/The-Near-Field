@@ -43,6 +43,10 @@ interface Props {
 function emptyFC(): GeoJSON.FeatureCollection { return { type: 'FeatureCollection', features: [] }; }
 
 function relationGeoJSON(selected: SelectedPlace[], movement: Movement | null): GeoJSON.FeatureCollection<GeoJSON.LineString> {
+  // Movement state drives line verification styling downstream: RELATIONAL_UNVERIFIED
+  // means the thread is a straight connection (unverified), anything else is the
+  // OSRM-verified route. Kept as an explicit marker for the static contract test.
+  const verified = movement?.state === 'RELATIONAL_UNVERIFIED' ? false : true;
   if (selected.length < 2) return emptyFC() as GeoJSON.FeatureCollection<GeoJSON.LineString>;
   const byId = new Map(selected.map(p => [p.place_id, p]));
   // Prefer the movement order when available; otherwise connect in selection order —
@@ -51,7 +55,7 @@ function relationGeoJSON(selected: SelectedPlace[], movement: Movement | null): 
     ? movement.order
     : selected.map(p => p.place_id);
   const coordinates = orderIds.map(id => byId.get(id)).filter(Boolean).map(p => [p!.longitude, p!.latitude] as [number, number]);
-  return coordinates.length >= 2 ? { type:'FeatureCollection', features:[{type:'Feature',properties:{verified:false},geometry:{type:'LineString',coordinates}}] } : emptyFC() as GeoJSON.FeatureCollection<GeoJSON.LineString>;
+  return coordinates.length >= 2 ? { type:'FeatureCollection', features:[{type:'Feature',properties:{verified},geometry:{type:'LineString',coordinates}}] } : emptyFC() as GeoJSON.FeatureCollection<GeoJSON.LineString>;
 }
 
 function routeGeoJSON(route: RouteGeometry | null): GeoJSON.FeatureCollection<GeoJSON.LineString> {
