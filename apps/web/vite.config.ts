@@ -30,6 +30,15 @@ function copyMaplibreWorker(): Plugin {
       for (const file of ['maplibre-gl-worker.mjs', 'maplibre-gl-shared.mjs']) {
         copyFileSync(require.resolve(`maplibre-gl/dist/${file}`), join(assetsDir, file));
       }
+      // @mapbox/mapbox-gl-rtl-text UMD bundle (self-contained, wasm inlined),
+      // registered at runtime via maplibre's setRTLTextPlugin('./rtl-text.js').
+      // MapLibre 6 loads it inside its workers by URL, so it must ship as a
+      // real static file next to the app, not be bundled.
+      // package.json maps '.' to src/index.js; the dist file lives one level up
+      copyFileSync(
+        join(require.resolve('@mapbox/mapbox-gl-rtl-text'), '..', '..', 'dist', 'mapbox-gl-rtl-text.js'),
+        join(outDir, 'rtl-text.js')
+      );
     }
   };
 }

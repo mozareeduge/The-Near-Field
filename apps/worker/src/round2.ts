@@ -63,9 +63,11 @@ If enrichment evidence is supplied, select only material that adds concrete loca
 
 ## Return compact material
 
-For each selected place:
-- max 3 facts;
-- max 3 particulars;
+For each selected place, at least one fact and one particular drawn from
+that place's own extract — an empty facts or particulars list fails
+validation. Quote closely, do not generalize:
+- 1-3 facts;
+- 1-3 particulars;
 - max 2 neutral affordances;
 - max 2 semantic lures.
 
@@ -205,8 +207,8 @@ export const GATHERER_SCHEMA = {
       required: ['place_id','source_candidate_id','title','url','latitude','longitude','facts','particulars','affordances','semantic_lures'],
       properties: {
         place_id:{type:'string'}, source_candidate_id:{type:'string'}, title:{type:'string'}, url:{type:'string'}, latitude:{type:'number'}, longitude:{type:'number'},
-        facts:{type:'array',maxItems:3,items:{type:'object',additionalProperties:false,required:['evidence_id','text'],properties:{evidence_id:{type:'string'},text:{type:'string'}}}},
-        particulars:{type:'array',maxItems:3,items:{type:'object',additionalProperties:false,required:['evidence_id','text'],properties:{evidence_id:{type:'string'},text:{type:'string'}}}},
+        facts:{type:'array',minItems:1,maxItems:3,items:{type:'object',additionalProperties:false,required:['evidence_id','text'],properties:{evidence_id:{type:'string'},text:{type:'string'}}}},
+        particulars:{type:'array',minItems:1,maxItems:3,items:{type:'object',additionalProperties:false,required:['evidence_id','text'],properties:{evidence_id:{type:'string'},text:{type:'string'}}}},
         affordances:{type:'array',maxItems:2,items:{type:'string'}}, semantic_lures:{type:'array',maxItems:2,items:{type:'string'}}
       }
     }},

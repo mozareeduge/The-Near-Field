@@ -1,6 +1,18 @@
 import { useEffect, useImperativeHandle, useMemo, useRef, forwardRef } from 'react';
 import { Map as MapLibreGlMap, NavigationControl, AttributionControl, type GeoJSONSource, type Map as MapLibreMap, type MapLayerMouseEvent } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+// @mapbox/mapbox-gl-rtl-text: applies RTL + Arabic-script shaping to map labels
+// (Persian basemap labels otherwise render with separated letters). MapLibre 6
+// dropped support for `self.registerRTLTextPlugin` from a bare import — it loads
+// the plugin by URL inside its tile-decoding workers instead. We self-host the
+// self-contained UMD bundle (public/rtl-text.js, wasm inlined as base64) and
+// register it eagerly with lazy:false, BEFORE the first map is created, so no
+// tile with Persian text ever renders without shaping. Throws if the plugin
+// fails to load rather than silently rendering broken letters.
+import { setRTLTextPlugin } from 'maplibre-gl';
+setRTLTextPlugin('./rtl-text.js', false).catch((err) => {
+  console.error('RTL text plugin failed to load; Persian labels will be broken.', err);
+});
 import type { Anchor, CandidatePage, Coordinate, Movement, RouteGeometry, SelectedPlace } from '../lib/types';
 import { anchorGeoJSON, candidatesGeoJSON, circleGeoJSON } from '../lib/geo';
 
@@ -31,9 +43,14 @@ interface Props {
 function emptyFC(): GeoJSON.FeatureCollection { return { type: 'FeatureCollection', features: [] }; }
 
 function relationGeoJSON(selected: SelectedPlace[], movement: Movement | null): GeoJSON.FeatureCollection<GeoJSON.LineString> {
-  if (!movement || movement.state !== 'RELATIONAL_UNVERIFIED' || movement.order.length < 2) return emptyFC() as GeoJSON.FeatureCollection<GeoJSON.LineString>;
+  if (selected.length < 2) return emptyFC() as GeoJSON.FeatureCollection<GeoJSON.LineString>;
   const byId = new Map(selected.map(p => [p.place_id, p]));
-  const coordinates = movement.order.map(id => byId.get(id)).filter(Boolean).map(p => [p!.longitude, p!.latitude] as [number, number]);
+  // Prefer the movement order when available; otherwise connect in selection order —
+  // the chosen places should always be visibly threaded together on the map.
+  const orderIds = movement && movement.order.length >= 2
+    ? movement.order
+    : selected.map(p => p.place_id);
+  const coordinates = orderIds.map(id => byId.get(id)).filter(Boolean).map(p => [p!.longitude, p!.latitude] as [number, number]);
   return coordinates.length >= 2 ? { type:'FeatureCollection', features:[{type:'Feature',properties:{verified:false},geometry:{type:'LineString',coordinates}}] } : emptyFC() as GeoJSON.FeatureCollection<GeoJSON.LineString>;
 }
 
@@ -61,7 +78,7 @@ function ensureLayers(map: MapLibreMap, anchor: Anchor | null, radiusM: number |
 
   if (!map.getSource('nf-relation')) {
     map.addSource('nf-relation',{type:'geojson',data:relationData});
-    map.addLayer({id:'nf-relation-line',type:'line',source:'nf-relation',paint:{'line-color':'#A9C7BE','line-width':1.2,'line-opacity':0.48,'line-dasharray':[2,3]}});
+    map.addLayer({id:'nf-relation-line',type:'line',source:'nf-relation',paint:{'line-color':'#A9C7BE','line-width':1.5,'line-opacity':0.75,'line-dasharray':[1,2]}});
   } else (map.getSource('nf-relation') as GeoJSONSource).setData(relationData);
 
   if (!map.getSource('nf-route')) {
