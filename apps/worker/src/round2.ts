@@ -204,6 +204,11 @@ Binding:
 For mention/reference, start/end are character offsets into the finalized paragraph.
 For structural, start/end are null.
 
+evidence_ids: only ids that appear in the supplied packet — fact/particular
+evidence_ids from selected_places, or local_material evidence_id values.
+Never use relation ids (R01...) or any id you invented. If a binding has no
+specific supporting evidence, use an empty array.
+
 Do not alter or pad the paragraph just to create bindings.
 A selected place does not have to be named.`;
 
