@@ -1,5 +1,5 @@
 import { useEffect, useImperativeHandle, useMemo, useRef, forwardRef } from 'react';
-import { Map as MapLibreGlMap, NavigationControl, AttributionControl, type GeoJSONSource, type Map as MapLibreMap, type MapLayerMouseEvent } from 'maplibre-gl';
+import { Map as MapLibreGlMap, NavigationControl, AttributionControl, type GeoJSONSource, type Map as MapLibreMap, type MapLayerMouseEvent, type StyleSpecification } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 // @mapbox/mapbox-gl-rtl-text: applies RTL + Arabic-script shaping to map labels
 // (Persian basemap labels otherwise render with separated letters). MapLibre 6
@@ -15,9 +15,16 @@ setRTLTextPlugin('./rtl-text.js', false).catch((err) => {
 });
 import type { Anchor, CandidatePage, Coordinate, Movement, RouteGeometry, SelectedPlace } from '../lib/types';
 import { anchorGeoJSON, candidatesGeoJSON, circleGeoJSON } from '../lib/geo';
+import { DEMO_MODE } from '../lib/api';
 
-const ORIENTATION_STYLE = 'https://tiles.openfreemap.org/styles/positron';
-const FIELD_STYLE = 'https://tiles.openfreemap.org/styles/fiord';
+// Design-QA fixture styles: solid background only, no tile source — lets the
+// map (and everything we draw on it: anchor, radius, candidates, route)
+// render and be screenshotted with no reachable tile server. Real deploys
+// always use the vendor styles below.
+const DEMO_ORIENTATION_STYLE: StyleSpecification = { version: 8, name: 'demo-orientation', sources: {}, layers: [{ id: 'bg', type: 'background', paint: { 'background-color': '#D6D0C4' } }] };
+const DEMO_FIELD_STYLE: StyleSpecification = { version: 8, name: 'demo-field', sources: {}, layers: [{ id: 'bg', type: 'background', paint: { 'background-color': '#0A0908' } }] };
+const ORIENTATION_STYLE = DEMO_MODE ? DEMO_ORIENTATION_STYLE : 'https://tiles.openfreemap.org/styles/positron';
+const FIELD_STYLE = DEMO_MODE ? DEMO_FIELD_STYLE : 'https://tiles.openfreemap.org/styles/fiord';
 
 export interface MapViewHandle {
   preview: (coordinate: Coordinate, zoom?: number) => void;
@@ -113,7 +120,10 @@ function framePoints(map: MapLibreMap, pts: [number, number][], opts: { padding?
 }
 
 function ensureLayers(map: MapLibreMap, anchor: Anchor | null, radiusM: number | null, candidates: CandidatePage[], selected: SelectedPlace[], movement: Movement | null, route: RouteGeometry | null) {
-  if (!map.isStyleLoaded()) return;
+  // Callers already gate on styleReady (a style swap isn't in flight), not
+  // map.isStyleLoaded() — that also flips false while our own just-added
+  // sources are settling, which isn't a reason to skip an update. See the
+  // styleReady comment above for why that used to drop updates silently.
   const anchorData = anchor ? anchorGeoJSON(anchor.coordinate) : emptyFC();
   const radiusData = anchor && radiusM ? circleGeoJSON(anchor.coordinate, radiusM) : emptyFC();
   const candidateData = candidatesGeoJSON(candidates);
@@ -122,31 +132,35 @@ function ensureLayers(map: MapLibreMap, anchor: Anchor | null, radiusM: number |
 
   if (!map.getSource('nf-anchor')) {
     map.addSource('nf-anchor', { type: 'geojson', data: anchorData });
-    map.addLayer({ id:'nf-anchor-line', type:'line', source:'nf-anchor', paint:{'line-color':'#E8E6DF','line-width':1.2,'line-opacity':0.92} });
+    map.addLayer({ id:'nf-anchor-line', type:'line', source:'nf-anchor', paint:{'line-color':'#E9E4D8','line-width':1.2,'line-opacity':0.92} });
   } else (map.getSource('nf-anchor') as GeoJSONSource).setData(anchorData);
 
   if (!map.getSource('nf-radius')) {
     map.addSource('nf-radius', { type:'geojson', data:radiusData });
-    map.addLayer({ id:'nf-radius-line', type:'line', source:'nf-radius', paint:{'line-color':'#E8E6DF','line-width':1,'line-opacity':0.18,'line-dasharray':[2,4]} });
+    map.addLayer({ id:'nf-radius-line', type:'line', source:'nf-radius', paint:{'line-color':'#E9E4D8','line-width':1,'line-opacity':0.18,'line-dasharray':[2,4]} });
   } else (map.getSource('nf-radius') as GeoJSONSource).setData(radiusData);
 
   if (!map.getSource('nf-relation')) {
     map.addSource('nf-relation',{type:'geojson',data:relationData});
-    map.addLayer({id:'nf-relation-line',type:'line',source:'nf-relation',paint:{'line-color':'#A9C7BE','line-width':1.5,'line-opacity':0.75,'line-dasharray':[1,2]}});
+    map.addLayer({id:'nf-relation-line',type:'line',source:'nf-relation',paint:{'line-color':'#C9A46B','line-width':1.5,'line-opacity':0.75,'line-dasharray':[1,2]}});
   } else (map.getSource('nf-relation') as GeoJSONSource).setData(relationData);
 
   if (!map.getSource('nf-route')) {
     map.addSource('nf-route',{type:'geojson',data:routeData});
-    map.addLayer({id:'nf-route-line',type:'line',source:'nf-route',paint:{'line-color':'#D9E5E1','line-width':2.2,'line-opacity':0.92}});
+    map.addLayer({id:'nf-route-line',type:'line',source:'nf-route',paint:{'line-color':'#E4CFA3','line-width':2.2,'line-opacity':0.92}});
   } else (map.getSource('nf-route') as GeoJSONSource).setData(routeData);
 
   if (!map.getSource('nf-candidates')) {
     map.addSource('nf-candidates', { type:'geojson', data:candidateData, promoteId:'candidate_id' });
-    map.addLayer({ id:'nf-candidate-hit', type:'circle', source:'nf-candidates', paint:{'circle-radius':16,'circle-color':'rgba(0,0,0,0)'} });
+    // Hit target radius: 20px (40px diameter) on coarse/touch pointers per the
+    // authority doc's own ≥40px touch rule (§7); 16px (32px) stays for
+    // precision mouse/trackpad input, where a tighter target is more legible.
+    const coarsePointer = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
+    map.addLayer({ id:'nf-candidate-hit', type:'circle', source:'nf-candidates', paint:{'circle-radius': coarsePointer ? 20 : 16,'circle-color':'rgba(0,0,0,0)'} });
     map.addLayer({ id:'nf-candidates-circle', type:'circle', source:'nf-candidates', paint:{
       'circle-radius':['case',['boolean',['feature-state','active'],false],7,['boolean',['feature-state','selected'],false],5,['boolean',['feature-state','hover'],false],4.5,2.8],
-      'circle-color':['case',['boolean',['feature-state','selected'],false],'#E7EEEB','#0B0C0C'],
-      'circle-stroke-color':['case',['boolean',['feature-state','active'],false],'#FFFFFF',['boolean',['feature-state','selected'],false],'#A9C7BE',['boolean',['feature-state','hover'],false],'#A9C7BE','#B7BBB5'],
+      'circle-color':['case',['boolean',['feature-state','selected'],false],'#F0E9DA','#0A0908'],
+      'circle-stroke-color':['case',['boolean',['feature-state','active'],false],'#FBF6EA',['boolean',['feature-state','selected'],false],'#C9A46B',['boolean',['feature-state','hover'],false],'#C9A46B','#8A8172'],
       'circle-stroke-width':['case',['boolean',['feature-state','active'],false],2,['boolean',['feature-state','selected'],false],1.6,['boolean',['feature-state','hover'],false],1.5,1],
       'circle-opacity':['case',['boolean',['feature-state','selected'],false],1,0.58],
       'circle-stroke-opacity':['case',['boolean',['feature-state','selected'],false],1,0.72]
@@ -164,13 +178,27 @@ export const MapView = forwardRef<MapViewHandle, Props>(function MapView({ mode,
   const selectedCandidateIds = useMemo(() => new Set(selectedPlaces.map(p => p.source_candidate_id)), [selectedPlaces]);
   const activeCandidateId = activePlaceId ? selectedPlaces.find(p => p.place_id === activePlaceId)?.source_candidate_id || null : null;
 
+  // `map.isStyleLoaded()` also reflects whether OUR OWN just-added GeoJSON
+  // sources have finished settling, not just whether a style swap is in
+  // flight — it can read false for a moment right after ensureLayers adds a
+  // source. The data-update effect below used to fall back to
+  // `map.once('style.load', apply)` when that happened, but 'style.load'
+  // only fires once per setStyle call: an update caught in that window
+  // registered a listener that would never fire again, silently dropping
+  // it. styleReady tracks "is a style swap in flight" explicitly instead;
+  // latest* mirrors the current props so the style.load handler that ends a
+  // swap can re-apply whatever arrived while it was in flight.
+  const styleReady = useRef(false);
+  const latestArgs = useRef({ anchor, radiusM, candidates, selectedPlaces, movement, routeGeometry });
+  latestArgs.current = { anchor, radiusM, candidates, selectedPlaces, movement, routeGeometry };
+
   useEffect(() => { pickRef.current = pickMode; }, [pickMode]);
   useEffect(() => { onMapPointRef.current = onMapPoint; }, [onMapPoint]);
   useEffect(() => { onCandidateHoverRef.current = onCandidateHover; }, [onCandidateHover]);
   useEffect(() => { onCandidateActivateRef.current = onCandidateActivate; }, [onCandidateActivate]);
 
   useImperativeHandle(ref, () => ({
-    preview(coordinate, zoom = 12.5) { mapRef.current?.flyTo({ center:[coordinate.lon,coordinate.lat], zoom, duration:650, essential:true }); },
+    preview(coordinate, zoom = 12.5) { const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches; mapRef.current?.flyTo({ center:[coordinate.lon,coordinate.lat], zoom, duration: reduced ? 0 : 650, essential:true }); },
     getCenter() { const c=mapRef.current?.getCenter(); return c ? {lat:c.lat,lon:c.lng} : {lat:0,lon:0}; }
   }), []);
 
@@ -184,13 +212,13 @@ export const MapView = forwardRef<MapViewHandle, Props>(function MapView({ mode,
       map.on('mouseleave','nf-candidate-hit',()=>{ if(hovered.current!==null)map.setFeatureState({source:'nf-candidates',id:hovered.current},{hover:false}); hovered.current=null; map.getCanvas().style.cursor=pickRef.current?'crosshair':''; onCandidateHoverRef.current(null); });
       map.on('click','nf-candidate-hit',(event:MapLayerMouseEvent)=>{ const id=event.features?.[0]?.properties?.candidate_id as string|undefined; if(id)onCandidateActivateRef.current(id); });
     };
-    map.on('load',()=>{ ensureLayers(map,null,null,[],[],null,null); bindCandidateEvents(); });
+    map.on('load',()=>{ styleReady.current=true; ensureLayers(map,null,null,[],[],null,null); bindCandidateEvents(); });
     map.on('click',(event)=>{ if(pickRef.current&&modeRef.current==='orientation')onMapPointRef.current({lat:event.lngLat.lat,lon:event.lngLat.lng}); });
     mapRef.current=map; return()=>{map.remove();mapRef.current=null;};
   },[]);
 
-  useEffect(()=>{ const map=mapRef.current;if(!map||modeRef.current===mode)return;modeRef.current=mode;map.setStyle(mode==='field'?FIELD_STYLE:ORIENTATION_STYLE,{diff:false});map.once('style.load',()=>ensureLayers(map,anchor,radiusM,candidates,selectedPlaces,movement,routeGeometry)); },[mode]);
-  useEffect(()=>{ const map=mapRef.current;if(!map)return;const apply=()=>ensureLayers(map,anchor,radiusM,candidates,selectedPlaces,movement,routeGeometry);if(map.isStyleLoaded())apply();else map.once('style.load',apply); },[anchor,radiusM,candidates,selectedPlaces,movement,routeGeometry]);
+  useEffect(()=>{ const map=mapRef.current;if(!map||modeRef.current===mode)return;modeRef.current=mode;styleReady.current=false;map.setStyle(mode==='field'?FIELD_STYLE:ORIENTATION_STYLE,{diff:false});map.once('style.load',()=>{styleReady.current=true;const a=latestArgs.current;ensureLayers(map,a.anchor,a.radiusM,a.candidates,a.selectedPlaces,a.movement,a.routeGeometry);}); },[mode]);
+  useEffect(()=>{ const map=mapRef.current;if(!map||!styleReady.current)return;ensureLayers(map,anchor,radiusM,candidates,selectedPlaces,movement,routeGeometry); },[anchor,radiusM,candidates,selectedPlaces,movement,routeGeometry]);
   useEffect(()=>{ const map=mapRef.current;if(!map||!map.getSource('nf-candidates'))return;for(const c of candidates)map.setFeatureState({source:'nf-candidates',id:c.candidate_id},{selected:selectedCandidateIds.has(c.candidate_id)}); },[candidates,selectedCandidateIds]);
   useEffect(()=>{ const map=mapRef.current;if(!map||!map.getSource('nf-candidates'))return;if(activeCandidate.current!==null)map.setFeatureState({source:'nf-candidates',id:activeCandidate.current},{active:false});activeCandidate.current=activeCandidateId;if(activeCandidateId)map.setFeatureState({source:'nf-candidates',id:activeCandidateId},{active:true}); },[activeCandidateId,candidates]);
   useEffect(()=>{ const map=mapRef.current;if(map)map.getCanvas().style.cursor=pickMode?'crosshair':''; },[pickMode]);
@@ -250,5 +278,8 @@ export const MapView = forwardRef<MapViewHandle, Props>(function MapView({ mode,
     return stopReveal;
   }, [selectedPlaces, movement, routeGeometry]);
 
-  return <div className="map-shell" ref={container} aria-label="Interactive orientation, evidence field, selection and movement map" />;
+  // role="img": the canvas itself has no keyboard path — real interaction
+  // routes through the candidate ledger and the sr-only run narration below.
+  // The label describes what's shown, not an affordance the map doesn't have.
+  return <div className="map-shell" ref={container} role="img" aria-label="Map of the current orientation, evidence field, selection and movement" />;
 });
