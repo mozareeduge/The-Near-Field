@@ -407,6 +407,12 @@ function parseAiResult(result: unknown): unknown {
       return content;
     }
   }
+  // OpenRouter error envelope: {error: {message, code}} — surface it as a
+  // thrown-shaped marker so the validator's "output must be an object" doesn't
+  // mask the real upstream failure.
+  if (isRecord(result) && isRecord(result.error) && typeof result.error.message === 'string') {
+    return { __openrouter_error: result.error.message };
+  }
   return result;
 }
 
@@ -505,6 +511,20 @@ async function runStructured(
       }
     }
     lastRaw = parsed;
+    // An OpenRouter error envelope (tagged by parseAiResult) is a transport
+    // failure, not a validation one: retry the same provider, fall back to
+    // Workers AI on the final attempt — never surface it as a 422.
+    const upstreamError = isRecord(parsed) && typeof parsed.__openrouter_error === 'string'
+      ? parsed.__openrouter_error : null;
+    if (upstreamError) {
+      if (attempt === 2) {
+        const err = new Error(`Model provider error: ${upstreamError}`);
+        (err as any).provider_error = upstreamError; (err as any).raw = lastRaw;
+        throw err;
+      }
+      lastErrors = [`provider error: ${upstreamError}`];
+      continue;
+    }
     const errors = validator(parsed);
     if (!errors.length) return {
       output: parsed,
