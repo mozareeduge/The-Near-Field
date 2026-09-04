@@ -162,8 +162,8 @@ button:focus-visible, input:focus-visible, summary:focus-visible, a:focus-visibl
 .prose-object p{margin:0;color:#e9e8e2;font-family:"Recursive Variable",Georgia,serif;font-variation-settings:var(--prose-axes);font-weight:400;font-size:20px;line-height:1.58;letter-spacing:-.005em}
 @media (min-width:1441px){.prose-object p{font-size:21px}}
 .prose-object.structural-active{box-shadow:inset 3px 0 0 rgba(169,199,190,.7)}
-.prose-binding{all:unset;cursor:pointer;color:inherit;border-bottom:1px solid rgba(169,199,190,.34);transition:background .14s,border-color .14s}
-.prose-binding:hover,.prose-binding:focus-visible,.prose-binding.active{background:rgba(169,199,190,.13);border-bottom-color:#a9c7be;outline:none}
+.prose-binding{all:unset;cursor:pointer;color:inherit;border-bottom:1px solid rgba(169,199,190,.28);padding-bottom:1px;transition:background .14s,border-color .14s}
+.prose-binding:hover,.prose-binding:focus-visible,.prose-binding.active{background:transparent;border-bottom-color:#a9c7be;outline:none}
 .structural-cue{margin-top:12px;font-family:var(--font-mono);font-variation-settings:var(--mono-axes);font-size:9px;line-height:1.2;text-transform:uppercase;letter-spacing:.1em;color:#a9c7be}
 .work-actions{display:flex;justify-content:center;gap:8px;margin-top:40px}
 .work-actions button{min-width:96px}

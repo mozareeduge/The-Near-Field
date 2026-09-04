@@ -14,7 +14,11 @@ function coordLabel(c: Coordinate) { return `${Math.abs(c.lat).toFixed(4)}°${c.
 function movementLabel(m: Movement|null) { if(!m)return ''; if(m.state==='NONE')return 'single place / no route'; if(m.state==='VERIFIED')return `trace / ${m.total_distance_m == null?'verified':formatDistance(Math.round(m.total_distance_m))}`; return `spatial relation / ${m.total_distance_m == null?'unverified':formatDistance(Math.round(m.total_distance_m))}`; }
 
 function AnnotatedParagraph({result,activePlace,onHover,onPin}:{result:NearbyFieldSynthesis;activePlace:string|null;onHover:(id:string|null)=>void;onPin:(id:string)=>void}) {
-  const spans = result.bindings.filter(b=>b.relation!=='structural'&&b.start!==null&&b.end!==null).sort((a,b)=>(a.start!-b.start!)||(a.end!-b.end!));
+  const spans = result.bindings.filter(b=>b.relation!=='structural'&&b.start!==null&&b.end!==null
+    // Skip degenerate spans: zero-length or whitespace-only bindings render as
+    // mysterious empty boxes mid-sentence (live feedback 2026-09-02).
+    && (b.end!-b.start!)>0 && result.paragraph.slice(b.start!,b.end!).trim().length>0
+  ).sort((a,b)=>(a.start!-b.start!)||(a.end!-b.end!));
   const usable:Binding[]=[]; let end=0; for(const b of spans){if(b.start!>=end){usable.push(b);end=b.end!;}}
   const out:ReactNode[]=[]; let cursor=0;
   usable.forEach((b,i)=>{ if(b.start!>cursor)out.push(<Fragment key={`t${i}`}>{result.paragraph.slice(cursor,b.start!)}</Fragment>); out.push(<button key={`b${i}`} className={`prose-binding ${activePlace===b.place_id?'active':''}`} onMouseEnter={()=>onHover(b.place_id)} onMouseLeave={()=>onHover(null)} onFocus={()=>onHover(b.place_id)} onBlur={()=>onHover(null)} onClick={()=>onPin(b.place_id)}>{result.paragraph.slice(b.start!,b.end!)}</button>); cursor=b.end!; });
