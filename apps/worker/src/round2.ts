@@ -347,6 +347,7 @@ export function validateSynthesis(output: unknown, gatherer: GathererOutput): st
     if (wc > 260) errors.push(`paragraph exceeds 260-word emergency limit (${wc})`);
   }
   const places = new Set(gatherer.selected_places.map(p => p.place_id));
+  const placeLabels = new Map(gatherer.selected_places.map(p => [p.place_id, p.title] as const));
   if (!stringArray(output.used_place_ids) || new Set(output.used_place_ids).size !== output.used_place_ids.length) errors.push('used_place_ids invalid');
   else for (const id of output.used_place_ids) if (!places.has(id)) errors.push(`unknown used_place_id ${id}`);
   const evidence = allEvidenceIds(gatherer);
@@ -356,10 +357,31 @@ export function validateSynthesis(output: unknown, gatherer: GathererOutput): st
     if (!places.has(b.place_id)) errors.push(`binding ${i} unknown place ${b.place_id}`);
     for (const eid of b.evidence_ids) if (typeof eid !== 'string' || !evidence.has(eid)) errors.push(`binding ${i} unknown evidence ${String(eid)}`);
     if (b.relation === 'structural') {
-      if (b.start !== null || b.end !== null) errors.push(`binding ${i} structural offsets must be null`);
+      if (b.start !== null || b.end !== null) { b.start = null; b.end = null; }
     } else {
       const n = typeof output.paragraph === 'string' ? output.paragraph.length : 0;
-      if (!Number.isInteger(b.start) || !Number.isInteger(b.end) || b.start < 0 || b.end <= b.start || b.end > n) errors.push(`binding ${i} offsets invalid`);
+      if (!Number.isInteger(b.start) || !Number.isInteger(b.end) || b.start < 0 || b.end <= b.start || b.end > n) {
+        // The model's character offsets are frequently approximate. Offsets are
+        // interface annotations, not evidence: instead of failing the whole
+        // synthesis, attempt a local repair — if the place title appears
+        // verbatim in the paragraph, snap to that span; otherwise downgrade to
+        // structural (null offsets).
+        const label = placeLabels.get(b.place_id);
+        let repaired = false;
+        if (typeof output.paragraph === 'string' && label) {
+          // Try the full title, then the parenthetical-stripped form
+          // ("Lockwood House (Harpers Ferry)" → "Lockwood House") — models bind
+          // by the short name they actually wrote into the paragraph.
+          const candidates = [label, label.replace(/\s*\([^)]*\)\s*$/, '').trim()];
+          for (const text of candidates) {
+            if (text && text.length >= 3) {
+              const at = output.paragraph.indexOf(text);
+              if (at >= 0) { b.start = at; b.end = at + text.length; repaired = true; break; }
+            }
+          }
+        }
+        if (!repaired) { b.start = null; b.end = null; b.relation = 'structural'; }
+      }
     }
   }
   return errors;

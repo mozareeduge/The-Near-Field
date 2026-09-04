@@ -16,7 +16,12 @@ setRTLTextPlugin('./rtl-text.js', false).catch((err) => {
 import type { Anchor, CandidatePage, Coordinate, Movement, RouteGeometry, SelectedPlace } from '../lib/types';
 import { anchorGeoJSON, candidatesGeoJSON, circleGeoJSON } from '../lib/geo';
 
-const ORIENTATION_STYLE = 'https://tiles.openfreemap.org/styles/positron';
+// Orientation: our own Near Field Dark style (public/nf-dark-style.json) — the
+// authority palette (§3 deep ground #0B0C0C) baked into the map itself, so the
+// initial state carries the same visual language as the processing state
+// (feedback 2026-09-02: "the coloring after selecting is much better than the
+// whitish initial state"). Field mode keeps fiord, further dimmed by CSS.
+const ORIENTATION_STYLE = './nf-dark-style.json';
 const FIELD_STYLE = 'https://tiles.openfreemap.org/styles/fiord';
 
 export interface MapViewHandle {

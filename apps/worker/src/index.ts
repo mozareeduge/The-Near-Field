@@ -54,7 +54,7 @@ type SearchResult = {
   coordinate: Coordinate;
   granularity: string;
   regionalContext: Record<string, string | null>;
-  provider: 'maptiler' | 'wikipedia-coordinate-fallback';
+  provider: 'maptiler' | 'nominatim' | 'wikipedia-coordinate-fallback';
 };
 
 type CandidatePage = {
@@ -148,6 +148,46 @@ async function searchMapTiler(query: string, key: string, proximity?: string): P
       granularity: mapTilerGranularity(feature.place_type),
       regionalContext: { settlementOrCity: settlement, intermediateRegion: region, country },
       provider: 'maptiler'
+    };
+  });
+}
+
+async function searchNominatim(query: string, proximity?: string): Promise<SearchResult[]> {
+  // OSM Nominatim: real fuzzy geocoding, no API key. Usage policy requires a
+  // identifying User-Agent and max 1 req/s — the worker's rate limiter already
+  // bounds the request rate per client.
+  const params = new URLSearchParams({
+    q: query, format: 'jsonv2', limit: '6', addressdetails: '0'
+  });
+  if (proximity) params.set('viewboxes', '');
+  const res = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, {
+    headers: { 'User-Agent': 'NearbyField/2.0 (https://mozareeduge.github.io/The-Near-Field/)' }
+  });
+  if (!res.ok) throw new Error(`Nominatim search failed: ${res.status}`);
+  const data = await res.json() as Array<Record<string, unknown>>;
+  return data.map((f): SearchResult => {
+    const lat = Number(f.lat), lon = Number(f.lon);
+    const category = String(f.category || ''), type = String(f.type || '');
+    const granularity = ['city', 'town', 'village', 'administrative'].includes(type) ? 'locality'
+      : ['suburb', 'neighbourhood', 'quarter'].includes(type) ? 'neighbourhood'
+      : type === 'building' || category === 'building' ? 'poi'
+      : ['highway', 'road'].includes(category) ? 'street'
+      : 'locality';
+    const display = String(f.display_name || '');
+    const parts = display.split(', ');
+    return {
+      id: `osm:${f.place_id}`,
+      label: String(f.name || parts[0] || query),
+      secondary: parts.length > 1 ? parts.slice(1).join(', ') : null,
+      coordinate: { lat, lon },
+      granularity,
+      // regional context flows from the rightmost display parts (country last)
+      regionalContext: {
+        settlementOrCity: parts.length > 2 ? parts[parts.length - 3] : null,
+        intermediateRegion: parts.length > 1 ? parts[parts.length - 2] : null,
+        country: parts.length > 0 ? parts[parts.length - 1] : null
+      },
+      provider: 'nominatim'
     };
   });
 }
@@ -315,13 +355,26 @@ async function retrieveEnrichment(label: string | null, candidateIds: Set<number
 
 async function handleSearch(request: Request, env: Env, url: URL) {
   const q = (url.searchParams.get('q') || '').trim();
-  if (q.length < 2) return json(request, env, { results: [], provider: env.MAPTILER_API_KEY ? 'maptiler' : 'wikipedia-coordinate-fallback' });
+  if (q.length < 2) return json(request, env, { results: [], provider: env.MAPTILER_API_KEY ? 'maptiler' : 'nominatim' });
   const proximity = url.searchParams.get('proximity') || undefined;
   try {
-    const results = env.MAPTILER_API_KEY
-      ? await searchMapTiler(q, env.MAPTILER_API_KEY, proximity)
-      : await searchWikipediaCoordinates(q);
-    return json(request, env, { results, provider: env.MAPTILER_API_KEY ? 'maptiler' : 'wikipedia-coordinate-fallback' });
+    // Priority: MapTiler (keyed, richest context) → Nominatim (keyless real
+    // geocoding) → Wikipedia coordinate pages (last resort; some queries like
+    // 'veni' only surface here via fuzzy settlement matches).
+    let results: SearchResult[];
+    let provider: string;
+    if (env.MAPTILER_API_KEY) {
+      results = await searchMapTiler(q, env.MAPTILER_API_KEY, proximity); provider = 'maptiler';
+    } else {
+      try {
+        results = await searchNominatim(q, proximity); provider = 'nominatim';
+      } catch {
+        results = await searchWikipediaCoordinates(q); provider = 'wikipedia-coordinate-fallback';
+      }
+    }
+    if (!results.length && provider === 'maptiler') { results = await searchNominatim(q, proximity); provider = 'nominatim'; }
+    if (!results.length && provider === 'nominatim') { results = await searchWikipediaCoordinates(q); provider = 'wikipedia-coordinate-fallback'; }
+    return json(request, env, { results, provider });
   } catch (error) {
     return json(request, env, { error: error instanceof Error ? error.message : 'Search failed' }, 502);
   }

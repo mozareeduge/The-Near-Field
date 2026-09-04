@@ -94,13 +94,28 @@ test('Synthesizer endpoint returns required validated bindings', async()=>{
   const payload=JSON.parse(ai.calls[0].input.messages[1].content); assert.equal('candidate_pages' in payload,false); assert.equal(payload.movement.route_verified,false);
 });
 
-test('Invalid paragraph binding is a red test', async()=>{
+test('Invalid paragraph binding offsets are repaired, not fatal', async()=>{
+  // Model offsets are interface annotations, not evidence: out-of-range spans
+  // are snapped to the place's real span in the paragraph (or downgraded to
+  // structural when the place text is absent) instead of failing the run.
   const bad=synthFixture(); bad.bindings[0].end=bad.paragraph.length+20;
-  assert.ok(validateSynthesis(bad,gatherer).some(x=>x.includes('offsets invalid')));
-  const ai=aiSequence([bad,bad]);
+  const repaired=structuredClone(bad);
+  validateSynthesis(repaired,gatherer);
+  const fixed=repaired.bindings[0];
+  const target=repaired.paragraph.indexOf('Harpers Ferry station');
+  assert.equal(fixed.start,target); assert.equal(fixed.end,target+'Harpers Ferry station'.length);
+  // binding whose place text is absent from the paragraph downgrades to structural
+  const absent=structuredClone(synthFixture());
+  absent.paragraph='A paragraph that names none of the places at all.';
+  absent.bindings.forEach(b=>{b.start=10;b.end=absent.paragraph.length+5;});
+  validateSynthesis(absent,gatherer);
+  for (const b of absent.bindings) { assert.equal(b.start,null); assert.equal(b.end,null); assert.equal(b.relation,'structural'); }
+  const ai=aiSequence([bad]);
   const movement={state:'NONE',route_verified:false,order:['P01'],total_distance_m:0,legs:[]};
   const res=await worker.fetch(jsonReq('https://nf.test/api/synthesize',{field,gatherer,movement}),{AI:ai});
-  assert.equal(res.status,422); assert.equal(ai.calls.length,2);
+  assert.equal(res.status,200); assert.equal(ai.calls.length,1);
+  const body=await res.json();
+  assert.equal(body.result.bindings[0].end, body.result.paragraph.indexOf('Harpers Ferry station')+'Harpers Ferry station'.length);
 });
 
 test('Movement rejects a selected-places packet that was never validated against the supplied field', async()=>{
