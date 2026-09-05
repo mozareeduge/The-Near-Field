@@ -29,9 +29,27 @@ validation. Quote closely, do not generalize:
 - max 2 semantic lures.
 
 Also return:
-- max 4 selected local-material items from enrichment;
-- supported relations;
+- max 4 local-material items from enrichment (may be none);
+- relations between selected places;
 - unknown current-condition categories.
+
+## Output shape (exact — no other top-level keys)
+
+Return a JSON object with EXACTLY these four keys:
+selected_places, local_material, relations, unknown_current_conditions.
+
+- selected_places: 1-5 items, each with ALL of: place_id (P01...),
+source_candidate_id (the exact candidate_id from the field — never invent),
+title, url, latitude (number, copied from the candidate), longitude (number,
+copied from the candidate), facts (1-3 {evidence_id, text}),
+particulars (1-3 {evidence_id, text}), affordances (max 2 strings),
+semantic_lures (max 2 strings).
+- local_material: max 4 items, each {evidence_id, source_id, text}.
+May be an empty array.
+- relations: max 8 items, each {relation_id (R01...),
+a (a place_id from selected_places), b (a place_id from selected_places),
+text}. May be an empty array.
+- unknown_current_conditions: array of strings (may be empty).
 
 ### Relation
 relation_id is any id you assign (R01...). a and b MUST be the exact

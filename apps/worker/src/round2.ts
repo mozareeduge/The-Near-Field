@@ -35,14 +35,18 @@ export type NearbyFieldSynthesis = { paragraph: string; used_place_ids: string[]
 
 export interface RuntimeEnv {
   AI?: { run(model: string, input: Record<string, unknown>, options?: Record<string, unknown>): Promise<unknown> };
-  OPENROUTER_API_KEY?: string;
-  OPENROUTER_GATHERER_MODEL?: string;
-  OPENROUTER_SYNTHESIZER_MODEL?: string;
+  NINEROUTER_BASE_URL?: string;
+  NINEROUTER_API_KEY?: string;
+  NINEROUTER_GATHERER_MODEL?: string;
+  NINEROUTER_SYNTHESIZER_MODEL?: string;
   GATHERER_MODEL?: string;
   SYNTHESIZER_MODEL?: string;
   ORS_API_KEY?: string;
   ALLOWED_ORIGINS?: string;
 }
+
+export const NINEROUTER_DEFAULT_MODEL = 'oc/muse-spark-1.3-contributor-free';
+export const NINEROUTER_REASONING_EFFORT = 'medium';
 
 export const GATHERER_PROMPT = `# Gatherer
 
@@ -75,9 +79,27 @@ validation. Quote closely, do not generalize:
 - max 2 semantic lures.
 
 Also return:
-- max 4 selected local-material items from enrichment;
-- supported relations;
+- max 4 local-material items from enrichment (may be none);
+- relations between selected places;
 - unknown current-condition categories.
+
+## Output shape (exact — no other top-level keys)
+
+Return a JSON object with EXACTLY these four keys:
+selected_places, local_material, relations, unknown_current_conditions.
+
+- selected_places: 1-5 items, each with ALL of: place_id (P01...),
+source_candidate_id (the exact candidate_id from the field — never invent),
+title, url, latitude (number, copied from the candidate), longitude (number,
+copied from the candidate), facts (1-3 {evidence_id, text}),
+particulars (1-3 {evidence_id, text}), affordances (max 2 strings),
+semantic_lures (max 2 strings).
+- local_material: max 4 items, each {evidence_id, source_id, text}.
+May be an empty array.
+- relations: max 8 items, each {relation_id (R01...),
+a (a place_id from selected_places), b (a place_id from selected_places),
+text}. May be an empty array.
+- unknown_current_conditions: array of strings (may be empty).
 
 ### Relation
 relation_id is any id you assign (R01...). a and b MUST be the exact
@@ -196,10 +218,12 @@ Return:
 - used_place_ids
 - bindings
 
-Binding:
-- mention: direct named textual reference
-- reference: indirect textual reference
-- structural: a selected place shapes the event/route without a text span
+Binding (each a JSON object with EXACTLY these keys):
+{place_id, relation, start, end, evidence_ids}
+- relation: one of mention, reference, structural —
+mention: direct named textual reference
+reference: indirect textual reference
+structural: a selected place shapes the event/route without a text span
 
 For mention/reference, start/end are character offsets into the finalized paragraph.
 For structural, start/end are null.
@@ -407,11 +431,11 @@ function parseAiResult(result: unknown): unknown {
       return content;
     }
   }
-  // OpenRouter error envelope: {error: {message, code}} — surface it as a
+  // Provider error envelope: {error: {message, code}} — surface it as a
   // thrown-shaped marker so the validator's "output must be an object" doesn't
   // mask the real upstream failure.
   if (isRecord(result) && isRecord(result.error) && typeof result.error.message === 'string') {
-    return { __openrouter_error: result.error.message };
+    return { __provider_error: result.error.message };
   }
   return result;
 }
@@ -426,19 +450,53 @@ function usageFrom(result: unknown) {
   } : null;
 }
 
+// Assemble a streamed OpenAI-compatible SSE body into one content string.
+// The 9router muse-spark path returns EMPTY content on non-streaming calls
+// (live-verified 2026-09-05) but streams deltas correctly, so the worker
+// always streams and assembles. Returns { text, usage }.
+async function readSseStream(res: Response): Promise<{ text: string; usage: unknown }> {
+  const raw = await res.text();
+  let text = '';
+  let usage: unknown = null;
+  for (const line of raw.split('\n')) {
+    const t = line.trim();
+    if (!t.startsWith('data:')) continue;
+    const data = t.slice(5).trim();
+    if (data === '[DONE]') break;
+    let evt: unknown;
+    try { evt = JSON.parse(data); } catch { continue; }
+    if (isRecord(evt) && isRecord(evt.error) && typeof evt.error.message === 'string') {
+      return { text: '', usage: { __provider_error: evt.error.message } as unknown };
+    }
+    if (!isRecord(evt) || !Array.isArray(evt.choices)) continue;
+    for (const c of evt.choices) {
+      if (!isRecord(c)) continue;
+      const delta = isRecord(c.delta) ? c.delta : null;
+      const msg = isRecord(c.message) ? c.message : null;
+      const chunk = (delta && typeof delta.content === 'string') ? delta.content
+        : (msg && typeof msg.content === 'string') ? msg.content : '';
+      text += chunk;
+      if (isRecord(evt.usage)) usage = evt.usage;
+      if (isRecord(c.usage)) usage = c.usage;
+    }
+  }
+  return { text, usage };
+}
+
 // One LLM attempt: build the request for the active provider and normalize the
 // response into { parsed, usage, provider, model }.
 async function llmCall(
-  env: RuntimeEnv, provider: 'openrouter' | 'workers-ai', model: string, system: string,
+  env: RuntimeEnv, provider: 'ninerouter' | 'workers-ai', model: string, system: string,
   payload: unknown, schema: Record<string, unknown>
 ) {
-  if (provider === 'openrouter') {
-    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+  if (provider === 'ninerouter') {
+    const base = (env.NINEROUTER_BASE_URL || '').replace(/\/+$/, '');
+    if (!base) throw new Error('NINEROUTER_BASE_URL is not configured');
+    const res = await fetch(`${base}/v1/chat/completions`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${env.OPENROUTER_API_KEY}`,
+        'Authorization': `Bearer ${env.NINEROUTER_API_KEY}`,
         'Content-Type': 'application/json',
-        // OpenRouter attribution headers (optional but recommended)
         'HTTP-Referer': 'https://mozareeduge.github.io',
         'X-Title': 'The Near Field'
       },
@@ -449,20 +507,21 @@ async function llmCall(
           { role: 'user', content: JSON.stringify(payload) }
         ],
         response_format: { type: 'json_schema', json_schema: { name: 'result', strict: true, schema } },
-        // glm-5.3-flash is a reasoning model: full-effort reasoning added 500+
-        // tokens and 2-4 minutes of latency per call, blowing past fetch
-        // timeouts live. Low effort keeps the structured discipline at a
-        // fraction of the latency (live-verified: 5.9s -> 1.3s on a probe).
-        reasoning: { effort: 'low' },
+        // muse-spark honors reasoning effort; medium is the cost/latency middle.
+        reasoning_effort: NINEROUTER_REASONING_EFFORT,
         max_tokens: 8000,
-        stream: false
+        stream: true
       })
     });
     if (!res.ok) {
       const text = await res.text().catch(() => '');
-      throw new Error(`OpenRouter ${res.status}: ${text.slice(0, 300)}`);
+      throw new Error(`9router ${res.status}: ${text.slice(0, 300)}`);
     }
-    const json = await res.json() as Record<string, unknown>;
+    const { text, usage } = await readSseStream(res);
+    if (isRecord(usage) && typeof (usage as Record<string, unknown>).__provider_error === 'string') {
+      return { parsed: { __provider_error: (usage as Record<string, unknown>).__provider_error }, usage: null, provider, model };
+    }
+    const json = { choices: [{ message: { content: text } }], usage };
     const parsed = parseAiResult(json);
     return { parsed, usage: usageFrom(json), provider, model };
   }
@@ -483,11 +542,11 @@ async function runStructured(
   validator: (output: unknown) => string[]
 ) {
   const started = Date.now();
-  // Primary: OpenRouter (owner key) when configured — falls back to the
+  // Primary: 9router (muse-spark) when configured — falls back to the
   // Workers AI binding only when the key is absent or the call fails.
-  let provider: 'openrouter' | 'workers-ai' = env.OPENROUTER_API_KEY ? 'openrouter' : 'workers-ai';
-  let modelId = env.OPENROUTER_API_KEY ? model : (env.GATHERER_MODEL || model);
-  // `model` param names the Workers-AI model; callers pass the OpenRouter id via env when present.
+  let provider: 'ninerouter' | 'workers-ai' = env.NINEROUTER_API_KEY ? 'ninerouter' : 'workers-ai';
+  let modelId = env.NINEROUTER_API_KEY ? model : (env.GATHERER_MODEL || model);
+  // `model` param names the Workers-AI model; callers pass the 9router id via env when present.
   if (provider === 'workers-ai') modelId = model;
   let lastErrors: string[] = [];
   let lastRaw: unknown = null;
@@ -498,10 +557,10 @@ async function runStructured(
       const call = await llmCall(env, provider, modelId, system + correction, payload, schema);
       parsed = call.parsed; usage = call.usage;
     } catch (error) {
-      // Transport failure: stay on OpenRouter for the retry — one transient
+      // Transport failure: stay on 9router for the retry — one transient
       // error must not downgrade the whole run to the weaker fallback model.
       // Fall back to Workers AI only on the final attempt.
-      if (provider === 'openrouter' && env.AI && attempt === 2) {
+      if (provider === 'ninerouter' && env.AI && attempt === 2) {
         provider = 'workers-ai';
         modelId = model;
         const call = await llmCall(env, provider, modelId, system + correction, payload, schema);
@@ -511,11 +570,11 @@ async function runStructured(
       }
     }
     lastRaw = parsed;
-    // An OpenRouter error envelope (tagged by parseAiResult) is a transport
+    // A provider error envelope (tagged by parseAiResult) is a transport
     // failure, not a validation one: retry the same provider, fall back to
     // Workers AI on the final attempt — never surface it as a 422.
-    const upstreamError = isRecord(parsed) && typeof parsed.__openrouter_error === 'string'
-      ? parsed.__openrouter_error : null;
+    const upstreamError = isRecord(parsed) && typeof parsed.__provider_error === 'string'
+      ? parsed.__provider_error : null;
     if (upstreamError) {
       if (attempt === 2) {
         const err = new Error(`Model provider error: ${upstreamError}`);
@@ -636,7 +695,7 @@ export async function handleGather(request: Request, env: RuntimeEnv) {
   const body=parsed.value; if(!isRecord(body)||!isRecord(body.field)) return response(request,env,{error:'field is required'},400);
   const field=body.field as CandidateField, runId=typeof body.run_id==='string'?body.run_id:crypto.randomUUID();
   try {
-    const model=env.OPENROUTER_API_KEY ? (env.OPENROUTER_GATHERER_MODEL||'z-ai/glm-5.3-flash') : (env.GATHERER_MODEL||'@cf/zai-org/glm-4.7-flash');
+    const model=env.NINEROUTER_API_KEY ? (env.NINEROUTER_GATHERER_MODEL||NINEROUTER_DEFAULT_MODEL) : (env.GATHERER_MODEL||'@cf/zai-org/glm-4.7-flash');
     const {output,meta}=await runStructured(env,model,GATHERER_PROMPT,gatherPayload(field,runId,body.anchor_granularity),GATHERER_SCHEMA as any,(o)=>validateGatherer(o,field));
     return response(request,env,{run_id:runId,gatherer:output,meta});
   } catch(error) { return response(request,env,{error:error instanceof Error?error.message:'Gatherer failed',validation_errors:(error as any)?.validation_errors||null},422); }
@@ -664,7 +723,7 @@ export async function handleSynthesize(request: Request, env: RuntimeEnv) {
   const gatherErrors=validateGatherer(gatherer,field); if(gatherErrors.length) return response(request,env,{error:'Gatherer packet invalid',validation_errors:gatherErrors},422);
   if((movement.state==='VERIFIED')!==movement.route_verified) return response(request,env,{error:'Movement verification invariant failed'},422);
   try {
-    const model=env.OPENROUTER_API_KEY ? (env.OPENROUTER_SYNTHESIZER_MODEL||'z-ai/glm-5.3-flash') : (env.SYNTHESIZER_MODEL||'@cf/meta/llama-4-scout-17b-16e-instruct');
+    const model=env.NINEROUTER_API_KEY ? (env.NINEROUTER_SYNTHESIZER_MODEL||NINEROUTER_DEFAULT_MODEL) : (env.SYNTHESIZER_MODEL||'@cf/meta/llama-4-scout-17b-16e-instruct');
     const system=`${SYNTHESIZER_PROMPT}\n\n${APP_BINDING_EXTENSION}`;
     const payload=buildSynthInput(runId,field,gatherer,movement);
     const {output,meta}=await runStructured(env,model,system,payload,SYNTHESIS_SCHEMA as any,(o)=>validateSynthesis(o,gatherer));
