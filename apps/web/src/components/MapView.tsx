@@ -181,7 +181,16 @@ export const MapView = forwardRef<MapViewHandle, Props>(function MapView({ mode,
 
   useEffect(() => {
     if (!container.current || mapRef.current) return;
-    const map = new MapLibreGlMap({ container:container.current, style:ORIENTATION_STYLE, center:[12,31], zoom:2.2, attributionControl:false, maxPitch:0, dragRotate:false, touchPitch:false });
+    const map = new MapLibreGlMap({
+      container:container.current, style:ORIENTATION_STYLE, center:[12,31], zoom:2.2,
+      attributionControl:false, maxPitch:0, dragRotate:false, touchPitch:false,
+      // Zoom-performance mitigations (feedback 2026-09-02: slow/blank zooming):
+      // halve tile count on HiDPI, kill crossfade flicker that reads as
+      // "disappearing map", and don't refetch expiring tiles mid-interaction.
+      pixelRatio: Math.min(devicePixelRatio || 1, 1.5),
+      fadeDuration: 0,
+      refreshExpiredTiles: false
+    });
     map.addControl(new NavigationControl({showCompass:false}),'bottom-right');
     map.addControl(new AttributionControl({compact:true}),'bottom-left');
     const bindCandidateEvents=()=>{
