@@ -4,3 +4,7 @@ dist/
 .dev.vars
 .env
 *.log
+
+# harness runtime scratch (not project files)
+.claude/sessions/
+.claude/state/
