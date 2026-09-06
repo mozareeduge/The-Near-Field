@@ -8,4 +8,4 @@
   X-Frame-Options: DENY
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: geolocation=(self), camera=(), microphone=()
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://tiles.openfreemap.org; font-src 'self'; connect-src 'self' https://tiles.openfreemap.org https://REPLACE-WITH-DEPLOYED-WORKER-ORIGIN; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'; form-action 'none'; object-src 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://tiles.openfreemap.org https://api.maptiler.com; font-src 'self'; connect-src 'self' https://tiles.openfreemap.org https://api.maptiler.com https://nearby-field-r2.mozareeduge.workers.dev; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'; form-action 'none'; object-src 'none'

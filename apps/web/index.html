@@ -18,7 +18,7 @@
       VITE_API_BASE env var (see .github/workflows/deploy-pages.yml); it
       must be the deployed Worker's origin with no trailing slash.
     -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://tiles.openfreemap.org; font-src 'self'; connect-src 'self' https://tiles.openfreemap.org %VITE_API_BASE%; worker-src 'self' blob:; base-uri 'none'; form-action 'none'; object-src 'none'" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://tiles.openfreemap.org https://api.maptiler.com; font-src 'self'; connect-src 'self' https://tiles.openfreemap.org https://api.maptiler.com %VITE_API_BASE%; worker-src 'self' blob:; base-uri 'none'; form-action 'none'; object-src 'none'" />
     <title>Nearby Field</title>
   </head>
   <body>

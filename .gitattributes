@@ -1,0 +1,14 @@
+# Keep line endings LF everywhere. Windows checkouts with core.autocrlf=true
+# were rewriting reference prompts to CRLF; template literals normalise to LF
+# at runtime, so the prompt-fidelity test (raw file bytes vs cooked string)
+# then failed locally. LF in the working tree keeps local + CI identical.
+* text=auto eol=lf
+
+*.woff2 binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.mp4 binary
+*.pbf binary
+*.pmtiles binary

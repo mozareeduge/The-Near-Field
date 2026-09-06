@@ -15,14 +15,7 @@ setRTLTextPlugin('./rtl-text.js', false).catch((err) => {
 });
 import type { Anchor, CandidatePage, Coordinate, Movement, RouteGeometry, SelectedPlace } from '../lib/types';
 import { anchorGeoJSON, candidatesGeoJSON, circleGeoJSON } from '../lib/geo';
-
-// Orientation: our own Near Field Dark style (public/nf-dark-style.json) — the
-// authority palette (§3 deep ground #0B0C0C) baked into the map itself, so the
-// initial state carries the same visual language as the processing state
-// (feedback 2026-09-02: "the coloring after selecting is much better than the
-// whitish initial state"). Field mode keeps fiord, further dimmed by CSS.
-const ORIENTATION_STYLE = './nf-dark-style.json';
-const FIELD_STYLE = 'https://tiles.openfreemap.org/styles/fiord';
+import { buildBaseStyle, applyPhasePaint } from '../lib/mapStyle';
 
 export interface MapViewHandle {
   preview: (coordinate: Coordinate, zoom?: number) => void;
@@ -67,39 +60,6 @@ function routeGeoJSON(route: RouteGeometry | null): GeoJSON.FeatureCollection<Ge
   return route ? {type:'FeatureCollection',features:[{type:'Feature',properties:{provider:route.provider,verified:true},geometry:route.geojson}]} : emptyFC() as GeoJSON.FeatureCollection<GeoJSON.LineString>;
 }
 
-// Progressive reveal: return a LineString trimmed to the first `fraction` of
-// its length (walking the coordinate list, not interpolating — vertex
-// resolution is dense enough at this scale that vertex-stepping reads as a
-// smooth draw at 12-20 fps updates). fraction=1 returns the full line.
-function partialLine(geometry: GeoJSON.LineString, fraction: number): GeoJSON.LineString {
-  const coords = geometry.coordinates;
-  if (fraction >= 1 || coords.length < 2) return geometry;
-  // total planar length (fine for framing; web-mercator distortion is uniform at this scale)
-  const segLens: number[] = [];
-  let total = 0;
-  for (let i = 1; i < coords.length; i++) {
-    const dx = coords[i][0] - coords[i-1][0], dy = coords[i][1] - coords[i-1][1];
-    const len = Math.sqrt(dx*dx + dy*dy); segLens.push(len); total += len;
-  }
-  const target = total * Math.max(0, fraction);
-  const out: [number, number][] = [coords[0] as [number, number]];
-  let acc = 0;
-  for (let i = 1; i < coords.length; i++) {
-    if (acc + segLens[i-1] >= target) {
-      // interpolate the final partial segment so the tip moves continuously
-      const remain = target - acc, len = segLens[i-1];
-      if (len > 0) {
-        const t = remain / len;
-        out.push([coords[i-1][0] + (coords[i][0]-coords[i-1][0])*t, coords[i-1][1] + (coords[i][1]-coords[i-1][1])*t]);
-      }
-      break;
-    }
-    out.push(coords[i] as [number, number]);
-    acc += segLens[i-1];
-  }
-  return { type:'LineString', coordinates: out.length >= 2 ? out : [coords[0], coords[0]] as [number,number][] };
-}
-
 // Frame the given points with gentle padding — the auto-camera for the
 // connection sequence. No-op for <2 points.
 function framePoints(map: MapLibreMap, pts: [number, number][], opts: { padding?: number; duration?: number; maxZoom?: number } = {}) {
@@ -115,6 +75,65 @@ function framePoints(map: MapLibreMap, pts: [number, number][], opts: { padding?
       essential: true
     }
   );
+}
+
+// Return a LineString trimmed to the first `fraction` of its length, walking
+// the vertex list (dense enough at this scale to read as a smooth draw). Used
+// for the progressive reveal. MapLibre has no `line-trim-offset`, so the reveal
+// is a short GeoJSON animation — but it runs AFTER the camera settles, not
+// during the fitBounds + fresh-tile load, which is what used to make it janky.
+function partialLine(geometry: GeoJSON.LineString, fraction: number): GeoJSON.LineString {
+  const coords = geometry.coordinates;
+  if (fraction >= 1 || coords.length < 2) return geometry;
+  const segLens: number[] = [];
+  let total = 0;
+  for (let i = 1; i < coords.length; i++) {
+    const dx = coords[i][0] - coords[i-1][0], dy = coords[i][1] - coords[i-1][1];
+    const len = Math.sqrt(dx*dx + dy*dy); segLens.push(len); total += len;
+  }
+  const target = total * Math.max(0, fraction);
+  const out: [number, number][] = [coords[0] as [number, number]];
+  let acc = 0;
+  for (let i = 1; i < coords.length; i++) {
+    if (acc + segLens[i-1] >= target) {
+      const remain = target - acc, len = segLens[i-1];
+      if (len > 0) {
+        const t = remain / len;
+        out.push([coords[i-1][0] + (coords[i][0]-coords[i-1][0])*t, coords[i-1][1] + (coords[i][1]-coords[i-1][1])*t]);
+      }
+      break;
+    }
+    out.push(coords[i] as [number, number]);
+    acc += segLens[i-1];
+  }
+  return { type:'LineString', coordinates: out.length >= 2 ? out : [coords[0], coords[0]] as [number,number][] };
+}
+
+type RevealProps = Record<string, unknown>;
+
+// Animate a line source from nothing to its full geometry over `durationMs`,
+// ~20fps, via requestAnimationFrame. Returns a canceller.
+function revealLine(map: MapLibreMap, sourceId: string, full: GeoJSON.LineString, props: RevealProps, durationMs: number): () => void {
+  const src = map.getSource(sourceId) as GeoJSONSource | undefined;
+  if (!src) return () => {};
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const setFrac = (f: number) => src.setData({ type:'FeatureCollection', features:[{ type:'Feature', properties: props, geometry: partialLine(full, f) }] });
+  if (reduced) { setFrac(1); return () => {}; }
+  let raf = 0, last = 0;
+  const start = performance.now();
+  const tick = () => {
+    const now = performance.now();
+    const t = Math.min(1, (now - start) / durationMs);
+    if (now - last >= 45 || t >= 1) { // ~20fps
+      last = now;
+      const eased = 1 - Math.pow(1 - t, 3); // easeOutCubic
+      setFrac(eased);
+    }
+    if (t < 1) raf = requestAnimationFrame(tick);
+  };
+  setFrac(0);
+  raf = requestAnimationFrame(tick);
+  return () => cancelAnimationFrame(raf);
 }
 
 function ensureLayers(map: MapLibreMap, anchor: Anchor | null, radiusM: number | null, candidates: CandidatePage[], selected: SelectedPlace[], movement: Movement | null, route: RouteGeometry | null) {
@@ -182,13 +201,16 @@ export const MapView = forwardRef<MapViewHandle, Props>(function MapView({ mode,
   useEffect(() => {
     if (!container.current || mapRef.current) return;
     const map = new MapLibreGlMap({
-      container:container.current, style:ORIENTATION_STYLE, center:[12,31], zoom:2.2,
+      container:container.current, style:buildBaseStyle(), center:[12,31], zoom:2.2,
       attributionControl:false, maxPitch:0, dragRotate:false, touchPitch:false,
-      // Zoom-performance mitigations (feedback 2026-09-02: slow/blank zooming):
-      // halve tile count on HiDPI, kill crossfade flicker that reads as
-      // "disappearing map", and don't refetch expiring tiles mid-interaction.
+      // Zoom/tile performance:
+      // - one style for the whole flow (no mid-session setStyle teardown) — see mapStyle.ts
+      // - cap tiles on HiDPI (2x devicePixelRatio = 4x tiles)
+      // - keep a large tile cache so returning to a zoom/area is instant, not a refetch
+      // - a short fade masks tile pop-in without the flicker that fade:0 removed
       pixelRatio: Math.min(devicePixelRatio || 1, 1.5),
-      fadeDuration: 0,
+      maxTileCacheSize: 220,
+      fadeDuration: 180,
       refreshExpiredTiles: false
     });
     map.addControl(new NavigationControl({showCompass:false}),'bottom-right');
@@ -198,70 +220,55 @@ export const MapView = forwardRef<MapViewHandle, Props>(function MapView({ mode,
       map.on('mouseleave','nf-candidate-hit',()=>{ if(hovered.current!==null)map.setFeatureState({source:'nf-candidates',id:hovered.current},{hover:false}); hovered.current=null; map.getCanvas().style.cursor=pickRef.current?'crosshair':''; onCandidateHoverRef.current(null); });
       map.on('click','nf-candidate-hit',(event:MapLayerMouseEvent)=>{ const id=event.features?.[0]?.properties?.candidate_id as string|undefined; if(id)onCandidateActivateRef.current(id); });
     };
-    map.on('load',()=>{ ensureLayers(map,null,null,[],[],null,null); bindCandidateEvents(); });
+    map.on('load',()=>{ ensureLayers(map,null,null,[],[],null,null); applyPhasePaint(map, modeRef.current); bindCandidateEvents(); });
     map.on('click',(event)=>{ if(pickRef.current&&modeRef.current==='orientation')onMapPointRef.current({lat:event.lngLat.lat,lon:event.lngLat.lng}); });
     mapRef.current=map; return()=>{map.remove();mapRef.current=null;};
   },[]);
 
-  useEffect(()=>{ const map=mapRef.current;if(!map||modeRef.current===mode)return;modeRef.current=mode;map.setStyle(mode==='field'?FIELD_STYLE:ORIENTATION_STYLE,{diff:false});map.once('style.load',()=>ensureLayers(map,anchor,radiusM,candidates,selectedPlaces,movement,routeGeometry)); },[mode]);
+  // Phase look: paint-only, no style reload.
+  useEffect(()=>{ const map=mapRef.current;if(!map||modeRef.current===mode)return;modeRef.current=mode;const run=()=>applyPhasePaint(map,mode);if(map.isStyleLoaded())run();else map.once('idle',run); },[mode]);
+
   useEffect(()=>{ const map=mapRef.current;if(!map)return;const apply=()=>ensureLayers(map,anchor,radiusM,candidates,selectedPlaces,movement,routeGeometry);if(map.isStyleLoaded())apply();else map.once('style.load',apply); },[anchor,radiusM,candidates,selectedPlaces,movement,routeGeometry]);
   useEffect(()=>{ const map=mapRef.current;if(!map||!map.getSource('nf-candidates'))return;for(const c of candidates)map.setFeatureState({source:'nf-candidates',id:c.candidate_id},{selected:selectedCandidateIds.has(c.candidate_id)}); },[candidates,selectedCandidateIds]);
   useEffect(()=>{ const map=mapRef.current;if(!map||!map.getSource('nf-candidates'))return;if(activeCandidate.current!==null)map.setFeatureState({source:'nf-candidates',id:activeCandidate.current},{active:false});activeCandidate.current=activeCandidateId;if(activeCandidateId)map.setFeatureState({source:'nf-candidates',id:activeCandidateId},{active:true}); },[activeCandidateId,candidates]);
   useEffect(()=>{ const map=mapRef.current;if(map)map.getCanvas().style.cursor=pickMode?'crosshair':''; },[pickMode]);
-  useEffect(()=>{ const map=mapRef.current;if(!map)return;const id=window.setTimeout(()=>map.resize(),360);return()=>window.clearTimeout(id); },[settled]);
+  // Resize once the map-stage height transition (composite) has actually
+  // finished, not partway through it.
+  useEffect(()=>{ const map=mapRef.current;if(!map)return;const stage=container.current?.closest('.map-stage');if(!stage){map.resize();return;}const done=()=>map.resize();stage.addEventListener('transitionend',done);const fallback=window.setTimeout(done,700);return()=>{stage.removeEventListener('transitionend',done);window.clearTimeout(fallback);}; },[settled]);
 
-  // ── Connection sequence (auto-camera + progressive line reveal) ──────────
-  // While selecting: once 2+ places are chosen, glide the camera so the user
-  // SEES the nodes being threaded; draw the provisional relation line
-  // progressively (12 fps vertex-stepping reveal) instead of popping it in.
-  // When the verified route arrives: re-frame to the final passway and morph
-  // the route line in with the same reveal, fading the provisional thread.
-  // Reduced motion: camera jumps and opacity swaps only (authority §19).
-  const revealTimer = useRef<number | null>(null);
-  const stopReveal = () => { if (revealTimer.current !== null) { window.clearInterval(revealTimer.current); revealTimer.current = null; } };
+  // ── Connection sequence (auto-camera + line reveal) ─────────────────────
+  // Once 2+ places are chosen: glide the camera to frame the nodes, then —
+  // after the camera settles — reveal the connecting line by animating
+  // `line-trim-offset` (paint only). The verified route replaces the
+  // provisional thread with the same reveal. Reduced motion: instant.
+  const cancelReveal = useRef<() => void>(() => {});
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
+    let moveHandler: (() => void) | null = null;
+    const clearMove = () => { if (moveHandler) { map.off('moveend', moveHandler); moveHandler = null; } };
     const run = () => {
+      if (selectedPlaces.length < 2) return;
       const pts = selectedPlaces.map(p => [p.longitude, p.latitude] as [number, number]);
-      if (selectedPlaces.length >= 2 && !routeGeometry) {
-        // Selection thread: frame the chosen nodes, then draw the provisional line progressively.
-        framePoints(map, pts, { padding: 110, duration: 1400, maxZoom: 15 });
-        const provisional = relationGeoJSON(selectedPlaces, movement).features[0]?.geometry as GeoJSON.LineString | undefined;
-        if (provisional && provisional.coordinates.length >= 2) {
-          const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-          const src = map.getSource('nf-relation') as GeoJSONSource | undefined;
-          if (src && !reduced) {
-            stopReveal();
-            const start = performance.now(), DURATION = 1200, FPS = 1000 / 12;
-            revealTimer.current = window.setInterval(() => {
-              const t = Math.min(1, (performance.now() - start) / DURATION);
-              (map.getSource('nf-relation') as GeoJSONSource).setData({ type:'FeatureCollection', features:[{ type:'Feature', properties:{verified:false}, geometry: partialLine(provisional, t) }] });
-              if (t >= 1) stopReveal();
-            }, FPS);
-          }
-        }
-      }
-      if (routeGeometry && selectedPlaces.length >= 2) {
-        // Verified passway arrived: re-frame so the final connection is fully in view.
-        const routePts = routeGeometry.geojson.coordinates.slice(-1).concat([[0,0]]).slice(0,1) as unknown as [number,number][];
-        void routePts; // framing uses node points; route follows the same extent
+      cancelReveal.current();
+      clearMove();
+
+      if (routeGeometry) {
+        // Verified passway: blank the provisional thread, frame, then draw the route.
+        (map.getSource('nf-relation') as GeoJSONSource | undefined)?.setData({ type:'FeatureCollection', features:[] });
         framePoints(map, pts, { padding: 90, duration: 1600, maxZoom: 15.5 });
-        const src = map.getSource('nf-route') as GeoJSONSource | undefined;
-        const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        if (src && !reduced) {
-          stopReveal();
-          const start = performance.now(), DURATION = 1800, FPS = 1000 / 14;
-          revealTimer.current = window.setInterval(() => {
-            const t = Math.min(1, (performance.now() - start) / DURATION);
-            (map.getSource('nf-route') as GeoJSONSource).setData({ type:'FeatureCollection', features:[{ type:'Feature', properties:{provider:routeGeometry.provider,verified:true}, geometry: partialLine(routeGeometry.geojson, t) }] });
-            if (t >= 1) stopReveal();
-          }, FPS);
-        }
+        moveHandler = () => { clearMove(); cancelReveal.current = revealLine(map, 'nf-route', routeGeometry.geojson, { provider: routeGeometry.provider, verified: true }, 1500); };
+      } else {
+        // Provisional selection thread.
+        const provisional = relationGeoJSON(selectedPlaces, movement).features[0]?.geometry as GeoJSON.LineString | undefined;
+        if (!provisional || provisional.coordinates.length < 2) return;
+        framePoints(map, pts, { padding: 110, duration: 1400, maxZoom: 15 });
+        moveHandler = () => { clearMove(); cancelReveal.current = revealLine(map, 'nf-relation', provisional, { verified: false }, 1100); };
       }
+      map.on('moveend', moveHandler);
     };
     if (map.isStyleLoaded()) run(); else map.once('style.load', run);
-    return stopReveal;
+    return () => { cancelReveal.current(); clearMove(); };
   }, [selectedPlaces, movement, routeGeometry]);
 
   return <div className="map-shell" ref={container} aria-label="Interactive orientation, evidence field, selection and movement map" />;

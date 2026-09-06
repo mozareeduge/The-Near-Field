@@ -8,3 +8,8 @@ dist/
 # harness runtime scratch (not project files)
 .claude/sessions/
 .claude/state/
+**/.claude/sessions/
+**/.claude/state/
+apps/**/.claude/
+
+apps/web/tsconfig.tsbuildinfo

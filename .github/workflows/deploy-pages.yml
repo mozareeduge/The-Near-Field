@@ -49,6 +49,10 @@ jobs:
         working-directory: apps/web
         env:
           VITE_API_BASE: ${{ vars.VITE_API_BASE }}
+          # Optional: set the VITE_MAPTILER_KEY repo variable to serve basemap
+          # tiles from MapTiler's CDN instead of the slower keyless OpenFreeMap
+          # origin. Restrict the key to the Pages domain in the MapTiler console.
+          VITE_MAPTILER_KEY: ${{ vars.VITE_MAPTILER_KEY }}
         run: npx tsc -b && npx vite build
 
       - uses: actions/configure-pages@v5
