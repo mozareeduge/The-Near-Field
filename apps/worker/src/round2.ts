@@ -62,11 +62,11 @@ Prefer:
 - real spatial/functional relation;
 - concrete material or ordinary practice;
 - differences in how places can be used/encountered;
-- details that may affect habit, work, movement, waiting, meeting, carrying, access, or another ordinary condition.
+- details that may affect habit, work, movement, waiting, meeting, carrying, or access.
 
 Do not select by fame alone.
 
-If enrichment evidence is supplied, select only material that adds concrete local life and is consistent with the anchor region. Reject namesake/homonym evidence from another place. It is valid to select no enrichment when none improves the field. Enrichment does not become a geographic place.
+If enrichment evidence is supplied, select only material that adds concrete local life and fits the anchor region. Reject namesake/homonym evidence from another place. Selecting no enrichment is valid. Enrichment never becomes a geographic place.
 
 ## Return compact material
 
@@ -83,23 +83,15 @@ Also return:
 - relations between selected places;
 - unknown current-condition categories.
 
-## Output shape (exact — no other top-level keys)
+## Output shape
 
-Return a JSON object with EXACTLY these four keys:
+One JSON object with EXACTLY these four top-level keys, no others:
 selected_places, local_material, relations, unknown_current_conditions.
+The last three may be empty arrays.
 
-- selected_places: 1-5 items, each with ALL of: place_id (P01...),
-source_candidate_id (the exact candidate_id from the field — never invent),
-title, url, latitude (number, copied from the candidate), longitude (number,
-copied from the candidate), facts (1-3 {evidence_id, text}),
-particulars (1-3 {evidence_id, text}), affordances (max 2 strings),
-semantic_lures (max 2 strings).
-- local_material: max 4 items, each {evidence_id, source_id, text}.
-May be an empty array.
-- relations: max 8 items, each {relation_id (R01...),
-a (a place_id from selected_places), b (a place_id from selected_places),
-text}. May be an empty array.
-- unknown_current_conditions: array of strings (may be empty).
+For each selected place, copy through from its candidate unchanged:
+source_candidate_id (exact candidate_id from the field — never invented),
+title, url, numeric latitude, numeric longitude. Assign a place_id (P01...).
 
 ### Relation
 relation_id is any id you assign (R01...). a and b MUST be the exact
