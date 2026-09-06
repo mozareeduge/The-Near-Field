@@ -3,7 +3,12 @@
 Claude Code reads `CLAUDE.md` at the repo root; that file is authoritative
 for this project and this file mirrors it. Read `CLAUDE.md` first.
 
-Short version: this app's product and visual design are already locked in
+Short version: **read `HANDOFF-2026-09-06.md` at the repo root first** — it is
+the authoritative continuation brief (done/verified, remaining, blocker,
+local live-server usage). Earlier phase docs (CURRENT_HANDOFF_STATE.md,
+NEXT_STEPS.md, KNOWN_LIMITS.md) are superseded.
+
+Next: this app's product and visual design are already locked in
 `NEXT_ROUND_INPUT/authority/10_PRODUCT_AND_INTERACTION.md` and
 `12_VISUAL_CARTOGRAPHIC_SYSTEM.md` — read those before changing UI. StyleSeed
 (vendored under `.claude/` and `.agents/skills/ss-*`) is available as a
