@@ -6,6 +6,17 @@ verified walking route, and one English paragraph materially dependent on
 that local field. It must not read as AI chat, a trip planner, a GIS
 dashboard, or a SaaS product.
 
+## Continuing this work — read the handoff first
+
+If you are a fresh session/harness (Claude Code, Codex, or any agent) picking
+this project up: **read `HANDOFF-2026-09-06.md` at the repo root before doing
+anything.** It is the authoritative brief: what is done and verified, what
+remains, the current blocker (production LLM hosting decision), and the local
+dev live-server command (`node --experimental-strip-types
+scripts/dev-live-server.mjs`). Earlier phase docs (CURRENT_HANDOFF_STATE.md,
+NEXT_STEPS.md, KNOWN_LIMITS.md, FINAL_DEFECT_REGISTER.md) describe superseded
+phases — their pipelines are already live.
+
 ## Design authority — read this before touching UI
 
 This project's visual/product design is **already locked**, not a blank
