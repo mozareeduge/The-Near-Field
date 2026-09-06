@@ -35,10 +35,19 @@ export type NearbyFieldSynthesis = { paragraph: string; used_place_ids: string[]
 
 export interface RuntimeEnv {
   AI?: { run(model: string, input: Record<string, unknown>, options?: Record<string, unknown>): Promise<unknown> };
+  // Primary LLM tier: the owner's 9router gateway (muse-spark), used for the
+  // test phase to burn free tokens. Only active when BOTH vars are set AND the
+  // base URL is reachable from the worker.
   NINEROUTER_BASE_URL?: string;
   NINEROUTER_API_KEY?: string;
   NINEROUTER_GATHERER_MODEL?: string;
   NINEROUTER_SYNTHESIZER_MODEL?: string;
+  // Middle tier: OpenRouter (owner key). Always reachable from Cloudflare, so
+  // this is what keeps the deployed site working when 9router is absent/down.
+  OPENROUTER_API_KEY?: string;
+  OPENROUTER_GATHERER_MODEL?: string;
+  OPENROUTER_SYNTHESIZER_MODEL?: string;
+  // Final tier: the Workers AI binding.
   GATHERER_MODEL?: string;
   SYNTHESIZER_MODEL?: string;
   ORS_API_KEY?: string;
@@ -47,6 +56,40 @@ export interface RuntimeEnv {
 
 export const NINEROUTER_DEFAULT_MODEL = 'oc/muse-spark-1.3-contributor-free';
 export const NINEROUTER_REASONING_EFFORT = 'medium';
+export const OPENROUTER_DEFAULT_MODEL = 'z-ai/glm-5.3-flash';
+const WORKERS_AI_GATHERER_MODEL = '@cf/zai-org/glm-4.7-flash';
+const WORKERS_AI_SYNTHESIZER_MODEL = '@cf/meta/llama-4-scout-17b-16e-instruct';
+
+export type LlmProvider = 'ninerouter' | 'openrouter' | 'workers-ai';
+type LlmRole = 'gatherer' | 'synthesizer';
+
+// Ordered fallback chain, filtered to what is actually configured. 9router is
+// preferred when set; OpenRouter is the reachable safety net; Workers AI is
+// last. Never empty — an unconfigured env still yields ['workers-ai'], which
+// then fails honestly if the binding is missing too.
+export function providerChain(env: RuntimeEnv): LlmProvider[] {
+  const chain: LlmProvider[] = [];
+  if (env.NINEROUTER_API_KEY && env.NINEROUTER_BASE_URL) chain.push('ninerouter');
+  if (env.OPENROUTER_API_KEY) chain.push('openrouter');
+  if (env.AI) chain.push('workers-ai');
+  return chain.length ? chain : ['workers-ai'];
+}
+
+function modelFor(env: RuntimeEnv, provider: LlmProvider, role: LlmRole): string {
+  if (provider === 'ninerouter') {
+    return role === 'gatherer'
+      ? (env.NINEROUTER_GATHERER_MODEL || NINEROUTER_DEFAULT_MODEL)
+      : (env.NINEROUTER_SYNTHESIZER_MODEL || NINEROUTER_DEFAULT_MODEL);
+  }
+  if (provider === 'openrouter') {
+    return role === 'gatherer'
+      ? (env.OPENROUTER_GATHERER_MODEL || OPENROUTER_DEFAULT_MODEL)
+      : (env.OPENROUTER_SYNTHESIZER_MODEL || OPENROUTER_DEFAULT_MODEL);
+  }
+  return role === 'gatherer'
+    ? (env.GATHERER_MODEL || WORKERS_AI_GATHERER_MODEL)
+    : (env.SYNTHESIZER_MODEL || WORKERS_AI_SYNTHESIZER_MODEL);
+}
 
 export const GATHERER_PROMPT = `# Gatherer
 
@@ -478,9 +521,42 @@ async function readSseStream(res: Response): Promise<{ text: string; usage: unkn
 // One LLM attempt: build the request for the active provider and normalize the
 // response into { parsed, usage, provider, model }.
 async function llmCall(
-  env: RuntimeEnv, provider: 'ninerouter' | 'workers-ai', model: string, system: string,
+  env: RuntimeEnv, provider: LlmProvider, model: string, system: string,
   payload: unknown, schema: Record<string, unknown>
 ) {
+  if (provider === 'openrouter') {
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${env.OPENROUTER_API_KEY}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://mozareeduge.github.io',
+        'X-Title': 'The Near Field'
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: JSON.stringify(payload) }
+        ],
+        response_format: { type: 'json_schema', json_schema: { name: 'result', strict: true, schema } },
+        // glm-5.3-flash is a reasoning model: full-effort reasoning added 500+
+        // tokens and 2-4 minutes of latency per call, blowing past fetch
+        // timeouts live. Low effort keeps the structured discipline at a
+        // fraction of the latency (live-verified: 5.9s -> 1.3s on a probe).
+        reasoning: { effort: 'low' },
+        max_tokens: 8000,
+        stream: false
+      })
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`OpenRouter ${res.status}: ${text.slice(0, 300)}`);
+    }
+    const json = await res.json() as Record<string, unknown>;
+    const parsed = parseAiResult(json);
+    return { parsed, usage: usageFrom(json), provider, model };
+  }
   if (provider === 'ninerouter') {
     const base = (env.NINEROUTER_BASE_URL || '').replace(/\/+$/, '');
     if (!base) throw new Error('NINEROUTER_BASE_URL is not configured');
@@ -530,58 +606,60 @@ async function llmCall(
 }
 
 async function runStructured(
-  env: RuntimeEnv, model: string, system: string, payload: unknown, schema: Record<string, unknown>,
+  env: RuntimeEnv, role: LlmRole, system: string, payload: unknown, schema: Record<string, unknown>,
   validator: (output: unknown) => string[]
 ) {
   const started = Date.now();
-  // Primary: 9router (muse-spark) when configured — falls back to the
-  // Workers AI binding only when the key is absent or the call fails.
-  let provider: 'ninerouter' | 'workers-ai' = env.NINEROUTER_API_KEY ? 'ninerouter' : 'workers-ai';
-  let modelId = env.NINEROUTER_API_KEY ? model : (env.GATHERER_MODEL || model);
-  // `model` param names the Workers-AI model; callers pass the 9router id via env when present.
-  if (provider === 'workers-ai') modelId = model;
+  const chain = providerChain(env);
   let lastErrors: string[] = [];
   let lastRaw: unknown = null;
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    const correction = attempt === 2 ? `\n\nYour previous structured output failed validation: ${lastErrors.join('; ')}. Correct only those failures and return the complete structured result.` : '';
-    let parsed: unknown; let usage: unknown;
-    try {
-      const call = await llmCall(env, provider, modelId, system + correction, payload, schema);
-      parsed = call.parsed; usage = call.usage;
-    } catch (error) {
-      // Transport failure: stay on 9router for the retry — one transient
-      // error must not downgrade the whole run to the weaker fallback model.
-      // Fall back to Workers AI only on the final attempt.
-      if (provider === 'ninerouter' && env.AI && attempt === 2) {
-        provider = 'workers-ai';
-        modelId = model;
+  let providerError: string | null = null;
+
+  // Walk the fallback chain. The first (preferred) provider gets two attempts
+  // so a validation miss can be corrected without downgrading the model; every
+  // later provider gets one attempt. A transport failure or a tagged provider
+  // error envelope exhausts the current provider, then drops to the next —
+  // it is never surfaced as a 422 unless the whole chain is spent.
+  for (let ci = 0; ci < chain.length; ci++) {
+    const provider = chain[ci];
+    const modelId = modelFor(env, provider, role);
+    const maxAttempts = ci === 0 ? 2 : 1;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const correction = lastErrors.length
+        ? `\n\nYour previous structured output failed validation: ${lastErrors.join('; ')}. Correct only those failures and return the complete structured result.`
+        : '';
+      let parsed: unknown; let usage: unknown;
+      try {
         const call = await llmCall(env, provider, modelId, system + correction, payload, schema);
         parsed = call.parsed; usage = call.usage;
-      } else {
-        throw error;
+      } catch (error) {
+        providerError = error instanceof Error ? error.message : String(error);
+        if (attempt < maxAttempts) continue;
+        break; // next provider in the chain
       }
-    }
-    lastRaw = parsed;
-    // A provider error envelope (tagged by parseAiResult) is a transport
-    // failure, not a validation one: retry the same provider, fall back to
-    // Workers AI on the final attempt — never surface it as a 422.
-    const upstreamError = isRecord(parsed) && typeof parsed.__provider_error === 'string'
-      ? parsed.__provider_error : null;
-    if (upstreamError) {
-      if (attempt === 2) {
-        const err = new Error(`Model provider error: ${upstreamError}`);
-        (err as any).provider_error = upstreamError; (err as any).raw = lastRaw;
-        throw err;
+      lastRaw = parsed;
+      const upstreamError = isRecord(parsed) && typeof parsed.__provider_error === 'string'
+        ? parsed.__provider_error : null;
+      if (upstreamError) {
+        providerError = upstreamError;
+        if (attempt < maxAttempts) { lastErrors = [`provider error: ${upstreamError}`]; continue; }
+        break; // next provider in the chain
       }
-      lastErrors = [`provider error: ${upstreamError}`];
-      continue;
+      const errors = validator(parsed);
+      if (!errors.length) return {
+        output: parsed,
+        meta: { provider, model: modelId, attempts: attempt, latency_ms: Date.now()-started, usage, prompt_sha256: await sha256(system), schema_sha256: await sha256(JSON.stringify(schema)) }
+      };
+      lastErrors = errors;
+      providerError = null;
     }
-    const errors = validator(parsed);
-    if (!errors.length) return {
-      output: parsed,
-      meta: { provider, model: modelId, attempts: attempt, latency_ms: Date.now()-started, usage, prompt_sha256: await sha256(system), schema_sha256: await sha256(JSON.stringify(schema)) }
-    };
-    lastErrors = errors;
+  }
+
+  if (providerError) {
+    const err = new Error(`Model provider error: ${providerError}`);
+    (err as any).provider_error = providerError; (err as any).raw = lastRaw;
+    throw err;
   }
   const err = new Error(`Structured model output failed validation after one retry: ${lastErrors.join('; ')}`);
   (err as any).validation_errors = lastErrors; (err as any).raw = lastRaw;
@@ -687,8 +765,7 @@ export async function handleGather(request: Request, env: RuntimeEnv) {
   const body=parsed.value; if(!isRecord(body)||!isRecord(body.field)) return response(request,env,{error:'field is required'},400);
   const field=body.field as CandidateField, runId=typeof body.run_id==='string'?body.run_id:crypto.randomUUID();
   try {
-    const model=env.NINEROUTER_API_KEY ? (env.NINEROUTER_GATHERER_MODEL||NINEROUTER_DEFAULT_MODEL) : (env.GATHERER_MODEL||'@cf/zai-org/glm-4.7-flash');
-    const {output,meta}=await runStructured(env,model,GATHERER_PROMPT,gatherPayload(field,runId,body.anchor_granularity),GATHERER_SCHEMA as any,(o)=>validateGatherer(o,field));
+    const {output,meta}=await runStructured(env,'gatherer',GATHERER_PROMPT,gatherPayload(field,runId,body.anchor_granularity),GATHERER_SCHEMA as any,(o)=>validateGatherer(o,field));
     return response(request,env,{run_id:runId,gatherer:output,meta});
   } catch(error) { return response(request,env,{error:error instanceof Error?error.message:'Gatherer failed',validation_errors:(error as any)?.validation_errors||null},422); }
 }
@@ -715,10 +792,9 @@ export async function handleSynthesize(request: Request, env: RuntimeEnv) {
   const gatherErrors=validateGatherer(gatherer,field); if(gatherErrors.length) return response(request,env,{error:'Gatherer packet invalid',validation_errors:gatherErrors},422);
   if((movement.state==='VERIFIED')!==movement.route_verified) return response(request,env,{error:'Movement verification invariant failed'},422);
   try {
-    const model=env.NINEROUTER_API_KEY ? (env.NINEROUTER_SYNTHESIZER_MODEL||NINEROUTER_DEFAULT_MODEL) : (env.SYNTHESIZER_MODEL||'@cf/meta/llama-4-scout-17b-16e-instruct');
     const system=`${SYNTHESIZER_PROMPT}\n\n${APP_BINDING_EXTENSION}`;
     const payload=buildSynthInput(runId,field,gatherer,movement);
-    const {output,meta}=await runStructured(env,model,system,payload,SYNTHESIS_SCHEMA as any,(o)=>validateSynthesis(o,gatherer));
+    const {output,meta}=await runStructured(env,'synthesizer',system,payload,SYNTHESIS_SCHEMA as any,(o)=>validateSynthesis(o,gatherer));
     return response(request,env,{run_id:runId,result:output,meta});
   } catch(error){return response(request,env,{error:error instanceof Error?error.message:'Synthesizer failed',validation_errors:(error as any)?.validation_errors||null},422);}
 }

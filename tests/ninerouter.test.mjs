@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import worker from '../apps/worker/src/index.ts';
-import { NINEROUTER_DEFAULT_MODEL } from '../apps/worker/src/round2.ts';
+import { NINEROUTER_DEFAULT_MODEL, OPENROUTER_DEFAULT_MODEL, providerChain } from '../apps/worker/src/round2.ts';
 
 const root = path.resolve(import.meta.dirname, '..');
 const field = JSON.parse(fs.readFileSync(path.join(root, 'fixtures/harpers-ferry/candidate_field.json'), 'utf8'));
@@ -63,4 +63,35 @@ test('Gatherer via 9router surfaces provider error envelopes honestly', async ()
     assert.match(out.error, /upstream overloaded/);
     assert.ok(!/output must be an object/.test(out.error));
   });
+});
+
+test('providerChain prefers 9router, then OpenRouter, then Workers AI, filtered to what is configured', () => {
+  assert.deepEqual(providerChain({ NINEROUTER_API_KEY: 'k', NINEROUTER_BASE_URL: 'u', OPENROUTER_API_KEY: 'o', AI: {} }), ['ninerouter', 'openrouter', 'workers-ai']);
+  assert.deepEqual(providerChain({ OPENROUTER_API_KEY: 'o', AI: {} }), ['openrouter', 'workers-ai']);
+  assert.deepEqual(providerChain({ NINEROUTER_API_KEY: 'k', AI: {} }), ['workers-ai'], '9router needs BOTH key and base URL');
+  assert.deepEqual(providerChain({ OPENROUTER_API_KEY: 'o' }), ['openrouter']);
+  assert.deepEqual(providerChain({}), ['workers-ai'], 'never empty');
+});
+
+test('9router transport failure falls through to OpenRouter, deployed sites stay up', async () => {
+  const seen = { nine: 0, or: null };
+  await withMockFetch(async (url, init) => {
+    const u = String(url);
+    if (u.includes('nine.test')) { seen.nine += 1; return new Response('gateway down', { status: 502 }); }
+    if (u.includes('openrouter.ai')) {
+      seen.or = JSON.parse(init.body);
+      return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(gatherer) } }], usage: { total_tokens: 42 } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    throw new Error('unexpected fetch ' + u);
+  }, async () => {
+    const res = await worker.fetch(jsonReq('https://nf.test/api/gather', { run_id: 'R9-3', field }), { NINEROUTER_BASE_URL: 'https://nine.test', NINEROUTER_API_KEY: 'k9', OPENROUTER_API_KEY: 'or-key' });
+    assert.equal(res.status, 200);
+    const out = await res.json();
+    assert.equal(out.meta.provider, 'openrouter');
+    assert.equal(out.meta.model, OPENROUTER_DEFAULT_MODEL);
+  });
+  assert.equal(seen.nine, 2, '9router gets both of its attempts before the chain drops down');
+  assert.equal(seen.or.model, OPENROUTER_DEFAULT_MODEL);
+  assert.equal(seen.or.stream, false);
+  assert.equal(seen.or.reasoning.effort, 'low');
 });
