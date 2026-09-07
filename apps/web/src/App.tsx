@@ -13,12 +13,32 @@ function anchorFromResult(result: SearchResult): Anchor { return { label:result.
 function coordLabel(c: Coordinate) { return `${Math.abs(c.lat).toFixed(4)}°${c.lat>=0?'N':'S'} · ${Math.abs(c.lon).toFixed(4)}°${c.lon>=0?'E':'W'}`; }
 function movementLabel(m: Movement|null) { if(!m)return ''; if(m.state==='NONE')return 'single place / no route'; if(m.state==='VERIFIED')return `trace / ${m.total_distance_m == null?'verified':formatDistance(Math.round(m.total_distance_m))}`; return `spatial relation / ${m.total_distance_m == null?'unverified':formatDistance(Math.round(m.total_distance_m))}`; }
 
+// A binding renders as an inline <button>, which collapses whitespace at its
+// own edges. So when a model-supplied offset includes a trailing/leading space
+// the space vanishes ("the strip" + "is" -> "the stripis"), and when an offset
+// lands mid-word the button boundary becomes a break opportunity that splits the
+// word across a line ("...the dist" / "ance..."). Pull each edge inward past
+// whitespace/punctuation, then grow any edge still inside a word out to the
+// whole word (live feedback 2026-09-07).
+const WORDISH = /[\p{L}\p{N}'’-]/u;
+function snapBindingSpan(text:string,start:number,end:number):[number,number] {
+  let s=start, e=end;
+  while(s<e && !WORDISH.test(text[s])) s++;
+  while(e>s && !WORDISH.test(text[e-1])) e--;
+  let guard=0;
+  while(s>0 && WORDISH.test(text[s-1]) && WORDISH.test(text[s]) && guard++<24) s--;
+  guard=0;
+  while(e<text.length && WORDISH.test(text[e]) && WORDISH.test(text[e-1]) && guard++<24) e++;
+  return [s,e];
+}
+
 function AnnotatedParagraph({result,activePlace,onHover,onPin}:{result:NearbyFieldSynthesis;activePlace:string|null;onHover:(id:string|null)=>void;onPin:(id:string)=>void}) {
-  const spans = result.bindings.filter(b=>b.relation!=='structural'&&b.start!==null&&b.end!==null
+  const spans = result.bindings.filter(b=>b.relation!=='structural'&&b.start!==null&&b.end!==null&&(b.end!-b.start!)>0)
+    .map(b=>{const [s,e]=snapBindingSpan(result.paragraph,b.start!,b.end!);return {...b,start:s,end:e};})
     // Skip degenerate spans: zero-length or whitespace-only bindings render as
     // mysterious empty boxes mid-sentence (live feedback 2026-09-02).
-    && (b.end!-b.start!)>0 && result.paragraph.slice(b.start!,b.end!).trim().length>0
-  ).sort((a,b)=>(a.start!-b.start!)||(a.end!-b.end!));
+    .filter(b=>b.end!>b.start!&&result.paragraph.slice(b.start!,b.end!).trim().length>0)
+    .sort((a,b)=>(a.start!-b.start!)||(a.end!-b.end!));
   const usable:Binding[]=[]; let end=0; for(const b of spans){if(b.start!>=end){usable.push(b);end=b.end!;}}
   const out:ReactNode[]=[]; let cursor=0;
   usable.forEach((b,i)=>{ if(b.start!>cursor)out.push(<Fragment key={`t${i}`}>{result.paragraph.slice(cursor,b.start!)}</Fragment>); out.push(<button key={`b${i}`} className={`prose-binding ${activePlace===b.place_id?'active':''}`} onMouseEnter={()=>onHover(b.place_id)} onMouseLeave={()=>onHover(null)} onFocus={()=>onHover(b.place_id)} onBlur={()=>onHover(null)} onClick={()=>onPin(b.place_id)}>{result.paragraph.slice(b.start!,b.end!)}</button>); cursor=b.end!; });

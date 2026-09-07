@@ -262,7 +262,7 @@ button { cursor: pointer; }
 
 /* ── field register (bottom-left system readout + progress meter) ──────── */
 .field-register {
-  position: absolute; z-index: 32; left: 24px; bottom: 40px;
+  position: absolute; z-index: 32; left: 24px; bottom: 48px;
   min-width: 200px; max-width: min(360px, calc(100vw - 48px));
   color: var(--paper); pointer-events: none;
 }
@@ -370,7 +370,10 @@ button { cursor: pointer; }
 .new-place:hover { color: var(--paper); }
 .source-note {
   position: absolute; z-index: 20; left: 24px; bottom: 12px;
-  color: color-mix(in srgb, var(--paper) 40%, transparent);
+  padding: 3px 7px;
+  background: color-mix(in srgb, var(--ink-950) 64%, transparent);
+  backdrop-filter: blur(4px);
+  color: color-mix(in srgb, var(--paper) 46%, transparent);
   font-size: 8px; letter-spacing: 0.03em; pointer-events: none;
 }
 
@@ -395,6 +398,9 @@ button { cursor: pointer; }
 .prose-object.structural-active { box-shadow: inset 2px 0 0 var(--field); padding-left: 16px; }
 .prose-binding {
   border: 0; background: none; padding: 0 0 1px; color: inherit; cursor: pointer;
+  /* buttons don't inherit the prose Recursive axis — force it so a bound
+     phrase reads in the same casual register as the sentence around it */
+  font: inherit; font-variation-settings: inherit; letter-spacing: inherit;
   border-bottom: 1px solid color-mix(in srgb, var(--field) 45%, transparent);
   transition: border-color var(--step-fast) var(--ease), background var(--step-fast) var(--ease);
 }
