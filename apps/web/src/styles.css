@@ -395,19 +395,6 @@ button { cursor: pointer; }
   font-size: 20px; line-height: 1.62; letter-spacing: -0.003em;
 }
 @media (min-width: 1441px) { .prose-object p { font-size: 21px; } }
-.prose-object.structural-active { box-shadow: inset 2px 0 0 var(--field); padding-left: 16px; }
-.prose-binding {
-  border: 0; background: none; padding: 0 0 1px; color: inherit; cursor: pointer;
-  /* buttons don't inherit the prose Recursive axis — force it so a bound
-     phrase reads in the same casual register as the sentence around it */
-  font: inherit; font-variation-settings: inherit; letter-spacing: inherit;
-  border-bottom: 1px solid color-mix(in srgb, var(--field) 45%, transparent);
-  transition: border-color var(--step-fast) var(--ease), background var(--step-fast) var(--ease);
-}
-.prose-binding:hover, .prose-binding:focus-visible, .prose-binding.active {
-  border-bottom-color: var(--field-bright); background: var(--field-tint); outline: none;
-}
-.structural-cue { margin-top: 12px; font-size: 9px; letter-spacing: 0.1em; color: var(--field); }
 .work-actions { justify-content: center; margin-top: 40px; }
 .work-actions button { min-width: 104px; }
 

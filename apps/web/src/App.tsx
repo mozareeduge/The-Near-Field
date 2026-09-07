@@ -1,8 +1,8 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MapView, type MapViewHandle } from './components/MapView';
 import { computeMovement, fetchField, runGatherer, runSynthesizer, searchPlaces } from './lib/api';
 import { formatDistance } from './lib/geo';
-import type { Anchor, Binding, CandidateField, CandidatePage, Coordinate, GathererOutput, ModelMeta, Movement, NearbyFieldSynthesis, RouteGeometry, SearchResult } from './lib/types';
+import type { Anchor, CandidateField, CandidatePage, Coordinate, GathererOutput, ModelMeta, Movement, NearbyFieldSynthesis, RouteGeometry, SearchResult } from './lib/types';
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 type Phase = 'orientation' | 'preview' | 'discovering' | 'field' | 'gathering' | 'routing' | 'synthesizing' | 'complete' | 'error';
@@ -13,38 +13,13 @@ function anchorFromResult(result: SearchResult): Anchor { return { label:result.
 function coordLabel(c: Coordinate) { return `${Math.abs(c.lat).toFixed(4)}°${c.lat>=0?'N':'S'} · ${Math.abs(c.lon).toFixed(4)}°${c.lon>=0?'E':'W'}`; }
 function movementLabel(m: Movement|null) { if(!m)return ''; if(m.state==='NONE')return 'single place / no route'; if(m.state==='VERIFIED')return `trace / ${m.total_distance_m == null?'verified':formatDistance(Math.round(m.total_distance_m))}`; return `spatial relation / ${m.total_distance_m == null?'unverified':formatDistance(Math.round(m.total_distance_m))}`; }
 
-// A binding renders as an inline <button>, which collapses whitespace at its
-// own edges. So when a model-supplied offset includes a trailing/leading space
-// the space vanishes ("the strip" + "is" -> "the stripis"), and when an offset
-// lands mid-word the button boundary becomes a break opportunity that splits the
-// word across a line ("...the dist" / "ance..."). Pull each edge inward past
-// whitespace/punctuation, then grow any edge still inside a word out to the
-// whole word (live feedback 2026-09-07).
-const WORDISH = /[\p{L}\p{N}'’-]/u;
-function snapBindingSpan(text:string,start:number,end:number):[number,number] {
-  let s=start, e=end;
-  while(s<e && !WORDISH.test(text[s])) s++;
-  while(e>s && !WORDISH.test(text[e-1])) e--;
-  let guard=0;
-  while(s>0 && WORDISH.test(text[s-1]) && WORDISH.test(text[s]) && guard++<24) s--;
-  guard=0;
-  while(e<text.length && WORDISH.test(text[e]) && WORDISH.test(text[e-1]) && guard++<24) e++;
-  return [s,e];
-}
-
-function AnnotatedParagraph({result,activePlace,onHover,onPin}:{result:NearbyFieldSynthesis;activePlace:string|null;onHover:(id:string|null)=>void;onPin:(id:string)=>void}) {
-  const spans = result.bindings.filter(b=>b.relation!=='structural'&&b.start!==null&&b.end!==null&&(b.end!-b.start!)>0)
-    .map(b=>{const [s,e]=snapBindingSpan(result.paragraph,b.start!,b.end!);return {...b,start:s,end:e};})
-    // Skip degenerate spans: zero-length or whitespace-only bindings render as
-    // mysterious empty boxes mid-sentence (live feedback 2026-09-02).
-    .filter(b=>b.end!>b.start!&&result.paragraph.slice(b.start!,b.end!).trim().length>0)
-    .sort((a,b)=>(a.start!-b.start!)||(a.end!-b.end!));
-  const usable:Binding[]=[]; let end=0; for(const b of spans){if(b.start!>=end){usable.push(b);end=b.end!;}}
-  const out:ReactNode[]=[]; let cursor=0;
-  usable.forEach((b,i)=>{ if(b.start!>cursor)out.push(<Fragment key={`t${i}`}>{result.paragraph.slice(cursor,b.start!)}</Fragment>); out.push(<button key={`b${i}`} className={`prose-binding ${activePlace===b.place_id?'active':''}`} onMouseEnter={()=>onHover(b.place_id)} onMouseLeave={()=>onHover(null)} onFocus={()=>onHover(b.place_id)} onBlur={()=>onHover(null)} onClick={()=>onPin(b.place_id)}>{result.paragraph.slice(b.start!,b.end!)}</button>); cursor=b.end!; });
-  if(cursor<result.paragraph.length)out.push(<Fragment key="tail">{result.paragraph.slice(cursor)}</Fragment>);
-  const structuralActive=activePlace&&result.bindings.some(b=>b.place_id===activePlace&&b.relation==='structural');
-  return <div className={`prose-object ${structuralActive?'structural-active':''}`}><p>{out}</p>{structuralActive&&<div className="structural-cue">structural relation · {activePlace}</div>}</div>;
+// The synthesized paragraph renders as plain, uninterrupted prose. The
+// Synthesizer still returns per-place bindings (kept in the payload and used by
+// the provenance panel / accessibility summary), but the reading surface itself
+// carries no in-text links or highlights — the work is one paragraph, not a
+// clickable index (owner direction 2026-09-07).
+function SynthesisParagraph({paragraph}:{paragraph:string}) {
+  return <div className="prose-object"><p>{paragraph}</p></div>;
 }
 
 export default function App() {
@@ -79,7 +54,6 @@ export default function App() {
   const restart=()=>{fieldController.current?.abort();runController.current?.abort();setPhase('orientation');setAnchor(null);setField(null);setVisibleRadius(null);setVisibleCandidates([]);setActiveCandidate(null);setHoveredCandidate(null);setActivePlace(null);setHoverPlace(null);setQuery('');setPickMode(false);setLedger({message:'find somewhere'});clearNarrative();};
   const activateCandidate=(candidateId:string)=>{setActiveCandidate(v=>v===candidateId?null:candidateId);const p=gatherer?.selected_places.find(p=>p.source_candidate_id===candidateId);if(p)setActivePlace(v=>v===p.place_id?null:p.place_id);};
   const hoverCandidate=(candidateId:string|null)=>{setHoveredCandidate(candidateId);const p=candidateId?gatherer?.selected_places.find(p=>p.source_candidate_id===candidateId):null;setHoverPlace(p?.place_id||null);};
-  const pinPlace=(placeId:string)=>setActivePlace(v=>v===placeId?null:placeId);
 
   const mapMode=phase==='orientation'||phase==='preview'?'orientation':'field';
   const processing=['discovering','gathering','routing','synthesizing'].includes(phase);
@@ -116,7 +90,7 @@ export default function App() {
 
     {composite&&synthesis&&<section className="reading-field" aria-label="Nearby Field paragraph">
       {movement&&<div className="movement-caption">{movementLabel(movement)}</div>}
-      <AnnotatedParagraph result={synthesis} activePlace={displayedPlace} onHover={setHoverPlace} onPin={pinPlace}/>
+      <SynthesisParagraph paragraph={synthesis.paragraph}/>
       <div className="work-actions"><button className="primary-action" onClick={again}>again</button><button className="secondary-action" onClick={restart}>new place</button></div>
       {gatherer&&<details className="provenance-register"><summary>sources / run</summary><div className="provenance-body"><div><strong>{gatherer.selected_places.length}</strong> selected from {field?.candidate_pages.length||0} nearby Wikipedia pages</div><div>{movementLabel(movement)}</div>{gatherMeta&&<div>Gatherer · {gatherMeta.model} · {gatherMeta.attempts} {gatherMeta.attempts===1?'attempt':'attempts'}</div>}{synthMeta&&<div>Synthesizer · {synthMeta.model} · {synthMeta.attempts} {synthMeta.attempts===1?'attempt':'attempts'}</div>}<ul>{gatherer.selected_places.map(p=><li key={p.place_id}><a href={p.url} target="_blank" rel="noreferrer">{p.title}</a></li>)}</ul></div></details>}
     </section>}

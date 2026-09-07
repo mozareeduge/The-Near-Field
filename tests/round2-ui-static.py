@@ -8,8 +8,12 @@ for signal in ['gathering','routing','synthesizing','complete','again','retry th
     assert signal in app, f'missing Round-2 state/action: {signal}'
 for signal in ['selectedPlaces','routeGeometry','activePlaceId','RELATIONAL_UNVERIFIED','feature-state']:
     assert signal in mapv, f'missing map behavior marker: {signal}'
-for signal in ['prose-binding','reading-field','selected','structural-active']:
+for signal in ['reading-field','selected']:
     assert signal in css, f'missing Round-2 craft rule: {signal}'
+# The reading paragraph is plain, uninterrupted prose: no in-text links or
+# highlighted spans (owner direction 2026-09-07). map<->prose bridging survives
+# on the map/candidate side only.
+assert 'prose-binding' not in css and 'prose-binding' not in app, 'the reading paragraph must carry no in-text links'
 # literary-surface (a floating glass panel over the map) was a documented visual
 # defect (§16 Final composition; verification brief item 6) — replaced by
 # reading-field, an in-flow section below the settled map.
